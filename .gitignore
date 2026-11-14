@@ -1,0 +1,20 @@
+# Datos crudos y pesados (se regeneran con pipeline/descargar.py)
+data/crudos/
+*.nc
+*.nc4
+*.hdf
+*.h5
+# Credenciales: NUNCA subir
+.netrc
+_netrc
+.env
+*.token
+# Python / Node
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+node_modules/
+# Sistema
+.DS_Store
+Thumbs.db

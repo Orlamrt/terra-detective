@@ -1,0 +1,231 @@
+<title>Clima de un vistazo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: tarjetas tipo app del clima — dos números grandes, monedas para la certeza, una línea de "qué significa" */
+:root{
+  --bg:#EEF2F4; --surface:#FFFFFF; --sunk:#F3F6F7; --ink:#14222B; --muted:#5C6C74; --line:#D8E0E3;
+  --hot:#D9482F; --hot-soft:#FBE3DC; --wet:#2F72C4; --wet-soft:#DDE9F8; --coin:#D9A21B; --coin-off:#E3E8EA; --accent:#0E6E6B;
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif; --f-body:"Inter","Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0F171C;--surface:#17232B;--sunk:#121D23;--ink:#E6EEF0;--muted:#97A8AF;--line:#2A3840;--hot:#F2775D;--hot-soft:#3A2420;--wet:#6FA6EC;--wet-soft:#1C2C40;--coin:#F0BE45;--coin-off:#2C3A42;--accent:#3DB0A6;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0F171C;--surface:#17232B;--sunk:#121D23;--ink:#E6EEF0;--muted:#97A8AF;--line:#2A3840;--hot:#F2775D;--hot-soft:#3A2420;--wet:#6FA6EC;--wet-soft:#1C2C40;--coin:#F0BE45;--coin-off:#2C3A42;--accent:#3DB0A6;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:17px;line-height:1.5;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 48px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(1.8rem,4.4vw,2.7rem);line-height:1.05;margin:0;letter-spacing:-.015em;text-wrap:balance}
+.intro{margin:6px 0 0;color:var(--muted);max-width:60ch}
+.nacer{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+.nacer label{font-weight:600}
+.nacer input{font:inherit;font-size:1.1rem;width:6.5rem;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk);color:var(--ink)}
+.nacer input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.nacer small{color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:16px}
+.seccion{display:flex;flex-direction:column;gap:10px}
+.seccion h2{font-family:var(--f-display);font-size:1.3rem;margin:6px 0 0;text-wrap:balance}
+.seccion h2 small{display:block;font-family:var(--f-body);font-size:.95rem;font-weight:400;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.top{padding:18px 20px 16px;display:flex;flex-direction:column;gap:14px}
+.top.hot{background:var(--hot-soft)}.top.wet{background:var(--wet-soft)}.top.flat{background:var(--sunk)}
+.lugar{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.lugar b{font-family:var(--f-display);font-size:1.25rem;line-height:1.1;display:block}
+.lugar span{font-size:.9rem;color:var(--muted)}
+.lugar svg{width:44px;height:44px;flex-shrink:0}
+.numeros{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:8px}
+.num small{display:block;font-size:.85rem;color:var(--muted)}
+.num b{font-family:var(--f-display);font-weight:800;font-size:clamp(2.2rem,6vw,2.8rem);line-height:1;font-variant-numeric:tabular-nums}
+.num b span{font-size:.45em;font-weight:600;margin-left:2px}
+.flecha{font-size:1.6rem;color:var(--muted);padding-bottom:6px}
+.veredicto{font-family:var(--f-display);font-weight:800;font-size:1.25rem;display:flex;align-items:center;gap:8px}
+.cuerpo{padding:16px 20px 18px;display:flex;flex-direction:column;gap:14px}
+.bloque h3{margin:0 0 6px;font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.monedas{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}
+.monedas i{width:20px;height:20px;border-radius:50%;background:var(--coin-off);display:grid;place-items:center;font-style:normal;font-size:.62rem;font-weight:700;color:transparent}
+.monedas i.on{background:var(--coin);color:#3B2A00}
+.bloque p{margin:0}
+.desde{background:var(--sunk);border-radius:10px;padding:10px 12px;font-size:.95rem}
+.desde b{font-family:var(--f-display);font-size:1.1rem}
+.fuente{font-size:.82rem;color:var(--muted);max-width:80ch}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>¿Cambió el clima? Míralo de un vistazo</h1>
+    <p class="intro">Como la app del clima de tu celular: el antes, el hoy, qué tan seguros estamos y qué significa para ti. Datos reales de la NASA.</p>
+  </header>
+  <div class="nacer">
+    <label for="anio">¿En qué año naciste?</label>
+    <input id="anio" type="number" inputmode="numeric" min="1930" max="2025" value="2005">
+    <small>Te decimos cuánto cambió desde entonces.</small>
+  </div>
+  <div id="contenido" class="wrap" style="gap:24px"></div>
+  <p class="fuente">Datos: NASA Giovanni, modelo FLDAS. «Antes» y «Hoy» son promedios de 10 años completos. Las monedas resumen la prueba estadística: cuántas caras seguidas tendrías que sacar para que un cambio así fuera pura suerte. «Desde tu año» usa la línea de tendencia y empieza donde empiezan los datos.</p>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="sol" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><g stroke-width="2" stroke-linecap="round" fill="none"><path d="M12 2v2.6M12 19.4V22M2 12h2.6M19.4 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></g></symbol>
+  <symbol id="nube" viewBox="0 0 24 24"><path d="M7 15.5a4 4 0 0 1 .4-8 5 5 0 0 1 9.4 1.6A3.4 3.4 0 0 1 17 15.5z"/><g stroke-width="2" stroke-linecap="round"><path d="M8.5 18.2l-1 2.3M12.5 18.2l-1 2.3M16.5 18.2l-1 2.3"/></g></symbol>
+  <symbol id="planta" viewBox="0 0 24 24"><path d="M11 20v-7.5C11 8.5 8.4 6.3 4 6.3c0 4 2.7 6.2 7 6.2"/><path d="M13 20v-5.5c0-3.6 2.4-5.8 7-5.8 0 3.6-2.4 5.8-7 5.8"/><rect x="5" y="19.5" width="14" height="2.4" rx="1"/></symbol>
+</svg>
+
+<script>// Motor estadístico del Detective (mismo método que el notebook de Colab)
+const Stats = (() => {
+  const mean = a => a.reduce((s, x) => s + x, 0) / a.length;
+  function lgamma(x) {
+    const g = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+    let y = x, tmp = x + 5.5; tmp -= (x + 0.5) * Math.log(tmp);
+    let ser = 1.000000000190015; for (const c of g) ser += c / ++y;
+    return -tmp + Math.log(2.5066282746310005 * ser / x);
+  }
+  function betacf(a, b, x) {
+    const MAXIT = 300, EPS = 3e-14, FPMIN = 1e-300;
+    let qab = a + b, qap = a + 1, qam = a - 1, c = 1, d = 1 - qab * x / qap;
+    if (Math.abs(d) < FPMIN) d = FPMIN; d = 1 / d; let h = d;
+    for (let m = 1; m <= MAXIT; m++) {
+      const m2 = 2 * m; let aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN; c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN; d = 1 / d; h *= d * c;
+      aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN; c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN; d = 1 / d;
+      const del = d * c; h *= del; if (Math.abs(del - 1) < EPS) break;
+    }
+    return h;
+  }
+  function ibeta(x, a, b) {
+    if (x <= 0) return 0; if (x >= 1) return 1;
+    const bt = Math.exp(lgamma(a + b) - lgamma(a) - lgamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+    return x < (a + 1) / (a + b + 2) ? bt * betacf(a, b, x) / a : 1 - bt * betacf(b, a, 1 - x) / b;
+  }
+  const tsf2 = (t, df) => ibeta(df / (df + t * t), df / 2, 0.5);           // P(|T|>t)
+  function tinv975(df) { let lo = 0, hi = 50; for (let i = 0; i < 100; i++) { const mid = (lo + hi) / 2; tsf2(mid, df) > 0.05 ? lo = mid : hi = mid; } return (lo + hi) / 2; }
+  function erf(x) { const s = Math.sign(x); x = Math.abs(x); const t = 1 / (1 + 0.3275911 * x);
+    const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x); return s * y; }
+  const normSf2 = z => 1 - erf(Math.abs(z) / Math.SQRT2);                 // P(|Z|>z)
+  const median = a => { const s = [...a].sort((x, y) => x - y), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
+
+  function analizar(vals, inicio) {
+    const [y0, m0] = inicio.split("-").map(Number);
+    const pts = [];
+    vals.forEach((v, i) => { if (v == null || !isFinite(v)) return; const k = m0 - 1 + i, m = k % 12, y = y0 + Math.floor(k / 12); pts.push({ y, m, t: y + (m + 0.5) / 12, v }); });
+    const sum = Array(12).fill(0), cnt = Array(12).fill(0); pts.forEach(p => { sum[p.m] += p.v; cnt[p.m]++; });
+    const clim = sum.map((s, i) => s / cnt[i]); pts.forEach(p => p.a = p.v - clim[p.m]);
+    const n = pts.length, ts = pts.map(p => p.t), as = pts.map(p => p.a), tm = mean(ts), am = mean(as);
+    let sxy = 0, sxx = 0; for (let i = 0; i < n; i++) { sxy += (ts[i] - tm) * (as[i] - am); sxx += (ts[i] - tm) ** 2; }
+    const b = sxy / sxx, a0 = am - b * tm, res = as.map((a, i) => a - (a0 + b * ts[i]));
+    const r0 = res.slice(0, -1), r1s = res.slice(1), m0r = mean(r0), m1r = mean(r1s);
+    let c01 = 0, c00 = 0, c11 = 0; for (let i = 0; i < r0.length; i++) { c01 += (r0[i] - m0r) * (r1s[i] - m1r); c00 += (r0[i] - m0r) ** 2; c11 += (r1s[i] - m1r) ** 2; }
+    const r1 = c01 / Math.sqrt(c00 * c11), neff = Math.max(3, n * (1 - r1) / (1 + r1));
+    const se = Math.sqrt(res.reduce((s, r) => s + r * r, 0) / (neff - 2) / sxx);
+    const pT = tsf2(Math.abs(b / se), neff - 2), tc = tinv975(neff - 2);
+    // Mann-Kendall estacional + pendiente de Sen
+    let S = 0, V = 0; const slopes = [];
+    for (let m = 0; m < 12; m++) {
+      const xs = pts.filter(p => p.m === m); const k = xs.length;
+      for (let i = 0; i < k - 1; i++) for (let j = i + 1; j < k; j++) { S += Math.sign(xs[j].v - xs[i].v); slopes.push((xs[j].v - xs[i].v) / (xs[j].y - xs[i].y)); }
+      V += k * (k - 1) * (2 * k + 5) / 18;
+    }
+    const z = S > 0 ? (S - 1) / Math.sqrt(V) : S < 0 ? (S + 1) / Math.sqrt(V) : 0, pMK = normSf2(z), sen = median(slopes);
+    // promedios anuales para dibujar
+    const porAnio = {}; pts.forEach(p => (porAnio[p.y] ||= []).push(p.v));
+    const meanAll = mean(pts.map(p => p.v));
+    const anual = Object.entries(porAnio).map(([y, a]) => ({ y: +y, v: mean(a), completo: a.length === 12 }));
+    const sigma = Math.sqrt(mean(res.map(r => r * r)));
+    const anios = n / 12;
+    const nNec = Math.pow((3.3 * sigma / Math.abs(b)) * Math.sqrt((1 + r1) / (1 - r1)), 2 / 3);
+    const nivel = t => meanAll + b * (t - tm);
+    return { se, tc, pts, anual, b, ic: [b - tc * se, b + tc * se], pT, pMK, z, sen, r1, neff, n, anios, meanAll, tm, nivel,
+      porDecada: b * 10, icDecada: [(b - tc * se) * 10, (b + tc * se) * 10], cambioTotal: b * anios, aniosNecesarios: nNec,
+      inicio: pts[0], fin: pts[n - 1] };
+  }
+  function veredicto(r) {
+    const p = Math.max(r.pT, r.pMK);
+    if (r.pT < 0.01 && r.pMK < 0.01) return { clave: "muy", texto: "Muy significativa", p };
+    if (r.pT < 0.05 && r.pMK < 0.05) return { clave: "si", texto: "Significativa", p };
+    if (Math.min(r.pT, r.pMK) < 0.1) return { clave: "indicio", texto: "Indicio, aún no concluyente", p };
+    return { clave: "no", texto: "No significativa", p };
+  }
+  return { analizar, veredicto };
+})();
+if (false && typeof module !== "undefined") module.exports = Stats;
+</script>
+<script>
+const D = [{"id":"mor_temp","nombre":"Temperatura del aire","region":"Morelos, México","unidad":"°C","fuente":"FLDAS (NASA) vía Giovanni","inicio":"2000-01","tema":"calor","defin":"Qué tan caliente está el aire cerca del suelo.","v":[18.25,19.69,21.7,22.98,22.21,20.37,20.68,20.42,20.38,19.95,20.34,18.15,18.28,19.67,20.46,22.85,22.44,20.53,20.13,20.27,19.61,19.17,18.19,18.56,18.42,19.01,21.67,23.3,23.71,21.44,20.44,20.92,19.91,19.84,17.87,17.88,17.81,19.96,21.52,23.26,24.37,20.98,20.61,20.6,20.15,19.55,19.01,16.89,17.12,18.39,21.09,21.63,22.27,20.68,20.57,20.98,20.08,19.97,19.06,18.13,17.82,19.76,21.23,23.82,23.36,23.95,21.15,20.44,20.31,20.04,19.39,19.02,18.89,19.81,21.57,23.46,22.46,21.33,20.98,20.45,20.36,20.19,18.21,18.05,18.57,19.48,21.33,22.56,23.04,21.61,20.57,20.29,19.7,18.94,18.7,19.24,18.03,20.28,20.89,23.17,22.9,20.87,19.74,20.16,19.64,19.2,18.07,18.55,19.03,19.43,20.94,23.11,22.43,21.75,21.23,21.41,19.93,20.19,18.31,18.48,17.01,17.22,20.74,22.56,24.54,22.87,20.34,20.28,19.94,19.07,18.25,17.2,18.74,19.69,21.22,23.64,24.14,22.15,19.96,20.6,19.76,19.13,19.53,18.79,18.57,19.04,21.19,22.46,22.98,21.63,20.07,20.23,20.01,20.44,18.56,19.38,18.75,20.77,20.27,23.39,22.97,21.46,20.47,20.55,19.72,19.72,18.81,18.64,17.69,20.68,21.93,23.25,21.97,20.8,20.33,20.88,20.16,19.52,18.59,18.24,18.47,19.11,20.14,23.28,22.23,20.98,21.01,21.47,20.2,20.6,20.72,19.89,18.25,19.15,20.56,23.73,24.62,21.37,21.12,20.97,20.44,20.41,19.37,20.13,19.17,20.13,21.54,22.94,24.03,21.66,20.43,21.03,19.98,19.81,19.35,18.42,17.44,20.25,22.59,22.85,22.97,21.14,21.65,20.53,20.46,20.21,19.55,18.6,19.01,21.12,22.25,23.29,24.51,22.46,21.0,21.42,20.94,20.09,20.14,19.52,19.11,20.82,22.74,24.54,23.87,22.71,21.55,20.8,20.39,19.79,19.83,19.39,19.44,20.15,22.21,23.5,22.86,20.85,20.9,20.85,20.08,20.65,19.22,20.26,19.1,19.94,21.73,23.86,24.59,21.91,22.1,21.16,20.39,20.54,20.84,19.01,19.58,20.41,22.4,23.41,23.8,25.58,22.67,21.98,22.07,21.29,20.75,18.75,20.12,21.35,23.51,24.69,26.69,24.37,21.67,21.6,21.05,19.79,20.92,19.56,19.63,21.58,23.12,23.48,24.03,20.9,21.06,21.49,21.19,20.6,20.31,20.04,19.43,20.37,21.31,23.2,24.3,21.78,22.19,22.82,22.22]},{"id":"mor_lluvia","nombre":"Lluvia","region":"Morelos, México","unidad":"mm/mes","fuente":"FLDAS (NASA) vía Giovanni","inicio":"2000-01","tema":"lluvia","defin":"Cuánta agua cae del cielo en el mes.","v":[2.031,2.909,3.256,6.824,108.6,249.3,117.7,193.2,182.3,52.74,4.655,3.467,8.905,1.83,10.95,27.46,63.87,251.8,225.1,186.8,202.8,47.46,4.563,5.294,12.94,3.626,1.842,10.55,56.63,216.2,182.1,110.6,305.6,67.75,63.89,1.262,6.0,2.319,2.178,15.99,49.53,292.6,135.0,209.7,292.3,108.2,9.75,2.2,17.66,5.018,6.035,24.37,72.39,224.6,201.1,192.7,215.9,97.25,7.621,0.6883,5.345,1.443,7.687,10.58,30.16,99.0,260.2,205.6,141.7,56.4,4.081,2.664,6.199,1.235,2.913,15.42,70.06,161.8,207.1,231.8,202.2,105.5,31.22,1.645,5.14,2.126,3.701,11.19,67.05,182.2,207.5,233.2,190.8,81.66,5.412,0.6499,3.389,0.9778,0.6977,19.65,51.53,213.8,275.4,219.7,213.0,55.43,2.492,1.967,7.568,4.188,5.299,9.294,100.8,154.8,143.5,192.5,286.5,84.95,20.27,3.365,21.23,12.87,3.472,14.11,22.04,161.3,316.5,268.9,260.1,7.161,10.07,0.472,1.344,0.1854,1.218,19.4,55.95,126.2,303.0,208.3,143.7,71.06,9.122,0.09059,3.445,13.47,7.537,10.36,54.69,176.9,251.4,251.5,134.3,66.73,10.46,0.6487,6.091,0.5015,4.766,9.891,89.69,197.0,182.0,187.2,275.3,71.68,46.78,0.8704,1.707,0.5583,0.5703,17.95,113.1,236.9,192.9,147.0,280.9,117.5,10.24,6.045,6.818,2.598,17.32,11.59,110.7,155.2,134.0,180.1,148.2,74.63,35.4,2.427,23.98,0.1271,37.25,38.07,65.13,255.3,247.2,242.0,184.1,49.72,47.99,0.4756,0.1495,0.07883,6.374,10.84,89.31,230.3,231.4,331.1,343.7,85.87,1.93,0.528,4.917,3.25,4.435,43.86,110.7,301.1,57.27,270.4,211.9,169.4,49.53,1.899,3.958,0.4842,3.099,3.624,37.62,258.3,207.8,191.1,193.8,167.0,44.87,2.595,5.578,3.925,7.253,5.227,27.28,134.6,207.8,260.8,281.2,23.81,1.88,1.01,8.039,0.1609,5.778,11.45,103.3,242.8,159.2,242.8,284.5,84.21,7.453,0.5094,10.38,0.4337,1.86,24.59,21.6,164.6,172.2,201.8,224.0,85.27,10.55,1.799,0.4197,0.3317,1.701,8.947,98.45,32.13,184.9,200.9,113.9,102.8,108.5,4.384,3.55,6.523,0.3155,4.525,26.69,129.9,353.3,227.2,325.8,109.0,9.524,1.632,24.97,6.48,2.473,2.76,141.3,276.7,172.9,220.7,299.7,136.7,4.215,2.758,1.451,1.559,10.62,38.86,56.95,278.6,166.7,91.05,132.2]},{"id":"sahel_suelo","nombre":"Humedad del suelo (10–40 cm)","region":"Sahel, África","unidad":"m³/m³","fuente":"FLDAS (NASA) vía Giovanni","inicio":"1982-01","tema":"sequía","defin":"Qué fracción del suelo, donde están las raíces, está ocupada por agua.","v":[0.2724,0.2666,0.2615,0.2579,0.2578,0.2662,0.2812,0.316,0.309,0.2876,0.2719,0.2632,0.2575,0.2526,0.2481,0.2449,0.244,0.2543,0.2774,0.2976,0.2899,0.2689,0.2515,0.243,0.2377,0.2334,0.2298,0.2273,0.2273,0.2403,0.2584,0.27,0.2647,0.2668,0.2484,0.2397,0.2344,0.2301,0.2266,0.2241,0.2231,0.2266,0.269,0.3065,0.3062,0.2826,0.2642,0.2547,0.2484,0.2432,0.2385,0.2354,0.2347,0.2398,0.2727,0.2994,0.3075,0.2943,0.2745,0.2642,0.2571,0.2511,0.2458,0.2422,0.2404,0.2548,0.2689,0.2967,0.2956,0.2783,0.2605,0.2509,0.2448,0.2398,0.2354,0.2326,0.2317,0.2381,0.2781,0.3262,0.3314,0.3074,0.2889,0.2786,0.2714,0.2651,0.2596,0.2556,0.254,0.2582,0.2908,0.3267,0.324,0.3054,0.2889,0.2792,0.2723,0.2664,0.261,0.2572,0.2562,0.2581,0.288,0.3094,0.2975,0.2792,0.2624,0.253,0.247,0.2422,0.238,0.2351,0.2397,0.2554,0.2791,0.3179,0.314,0.2929,0.2766,0.2671,0.2609,0.2555,0.2506,0.2473,0.2466,0.2558,0.2822,0.3138,0.3188,0.2923,0.2752,0.2657,0.2593,0.2539,0.2491,0.2456,0.2444,0.2486,0.2784,0.3035,0.3072,0.2833,0.2666,0.2569,0.2504,0.2453,0.2407,0.2376,0.2372,0.2454,0.2804,0.332,0.3414,0.3242,0.3085,0.299,0.292,0.2857,0.2797,0.2754,0.2738,0.2766,0.2938,0.3277,0.3243,0.3045,0.2875,0.2778,0.2707,0.2644,0.2591,0.2553,0.2543,0.2634,0.2773,0.3073,0.3123,0.2937,0.2759,0.2656,0.2586,0.2529,0.2482,0.2449,0.2445,0.2586,0.2804,0.3061,0.3072,0.2868,0.2699,0.26,0.2535,0.2481,0.2434,0.2402,0.2404,0.2494,0.2748,0.3178,0.3311,0.3086,0.2902,0.2796,0.2722,0.266,0.2604,0.2564,0.2549,0.2575,0.2914,0.3422,0.3461,0.3281,0.3117,0.302,0.2952,0.2885,0.2824,0.2783,0.2765,0.2806,0.3002,0.3261,0.3172,0.2983,0.2811,0.2712,0.2644,0.2588,0.2538,0.2503,0.2499,0.2557,0.2884,0.3177,0.3152,0.2911,0.2723,0.2625,0.2559,0.2506,0.246,0.2428,0.2417,0.2471,0.2737,0.3084,0.3051,0.2849,0.2678,0.2576,0.251,0.2457,0.2412,0.2381,0.2372,0.2546,0.2912,0.324,0.3274,0.3032,0.2875,0.2771,0.27,0.2639,0.2587,0.2552,0.2545,0.2623,0.2859,0.3156,0.3142,0.2886,0.2716,0.2617,0.2553,0.2501,0.2457,0.2425,0.2415,0.2556,0.295,0.3169,0.3196,0.2998,0.2808,0.2701,0.2629,0.257,0.252,0.2485,0.2474,0.254,0.2721,0.3123,0.32,0.301,0.282,0.2713,0.2644,0.2585,0.2533,0.2498,0.2492,0.2519,0.2772,0.3262,0.3326,0.304,0.2876,0.2774,0.2704,0.2645,0.2591,0.2554,0.2544,0.2585,0.2972,0.3258,0.3312,0.3117,0.2947,0.2848,0.2775,0.2713,0.2659,0.262,0.2609,0.265,0.2881,0.3182,0.3266,0.306,0.2915,0.2821,0.2747,0.2684,0.2631,0.2595,0.259,0.2685,0.2988,0.339,0.3489,0.3295,0.3146,0.3059,0.2991,0.2928,0.2869,0.2828,0.2814,0.2844,0.2981,0.3273,0.3286,0.3078,0.2904,0.28,0.273,0.2671,0.2617,0.2582,0.2578,0.2699,0.3095,0.3454,0.3499,0.3309,0.3169,0.3081,0.3013,0.295,0.2891,0.2851,0.2833,0.2849,0.304,0.3342,0.3363,0.3162,0.3001,0.2905,0.2836,0.2773,0.2718,0.2679,0.2683,0.2729,0.2879,0.3236,0.3234,0.307,0.2893,0.2791,0.2723,0.2664,0.2612,0.2576,0.2559,0.2585,0.2867,0.3314,0.3393,0.3226,0.3066,0.2976,0.2914,0.2852,0.2793,0.2753,0.2744,0.2779,0.3079,0.3385,0.3353,0.314,0.299,0.2895,0.2825,0.2762,0.2706,0.2668,0.2667,0.2756,0.3083,0.3322,0.3278,0.3063,0.2886,0.2788,0.2721,0.2663,0.261,0.2573,0.2562,0.2658,0.3009,0.336,0.3445,0.3258,0.3101,0.3009,0.2939,0.2874,0.2816,0.2776,0.2762,0.2814,0.3026,0.3325,0.3427,0.3276,0.3119,0.3023,0.2953,0.2887,0.2826,0.2787,0.2769,0.2858,0.3137,0.3501,0.3607,0.3406,0.327,0.3195,0.3126,0.3062,0.3005,0.2965,0.2953,0.2979,0.3148,0.3489,0.3433,0.325,0.3118,0.3026,0.296,0.2898,0.2841,0.2803,0.2788,0.285,0.3117,0.3394,0.3503,0.3331,0.3188,0.3102,0.3036,0.2972,0.2914,0.2875,0.2877,0.2948,0.3155,0.3343,0.3334,0.3129,0.2963,0.2861,0.279,0.2728,0.2674,0.2638,0.2633,0.2718,0.3101,0.3549,0.3638,0.3469,0.3333,0.3259,0.3194,0.3131,0.3072,0.303,0.3017,0.3022,0.3207,0.3399,0.3386,0.3179,0.3023,0.2933,0.2865,0.2805,0.2753,0.2718,0.2709,0.2802,0.295,0.3143,0.3065]},{"id":"nmx_suelo","nombre":"Humedad del suelo (10–40 cm)","region":"Norte de México","unidad":"m³/m³","fuente":"FLDAS (NASA) vía Giovanni","inicio":"1982-01","tema":"sequía","defin":"Qué fracción del suelo, donde están las raíces, está ocupada por agua.","v":[0.2797,0.2752,0.2667,0.2584,0.251,0.2425,0.2692,0.2911,0.2786,0.2579,0.2458,0.2843,0.2829,0.2872,0.273,0.2615,0.2508,0.2421,0.2532,0.2973,0.2942,0.307,0.2913,0.2829,0.2769,0.276,0.2635,0.2535,0.245,0.257,0.3106,0.3362,0.3083,0.3031,0.2863,0.2981,0.3076,0.3026,0.2888,0.2786,0.2686,0.2633,0.2871,0.3142,0.3034,0.2958,0.2787,0.2747,0.2676,0.2659,0.2576,0.2496,0.2427,0.2462,0.3186,0.3191,0.3293,0.3045,0.2865,0.2947,0.2945,0.2854,0.2799,0.2708,0.2624,0.2593,0.2665,0.3112,0.2953,0.2696,0.2546,0.2561,0.2633,0.2584,0.2514,0.244,0.237,0.2319,0.2935,0.3179,0.2984,0.2676,0.2542,0.256,0.2698,0.27,0.2579,0.2479,0.2383,0.2306,0.2469,0.307,0.3043,0.2695,0.2545,0.2531,0.2639,0.2596,0.2533,0.2437,0.235,0.2341,0.2849,0.3304,0.3197,0.3172,0.2942,0.3008,0.3113,0.2999,0.2947,0.2835,0.2726,0.2624,0.2976,0.3273,0.334,0.3047,0.2905,0.3037,0.3272,0.3227,0.3095,0.2996,0.2876,0.2763,0.2804,0.3162,0.3001,0.2697,0.2612,0.2608,0.2932,0.283,0.2789,0.2656,0.2553,0.2466,0.3003,0.2989,0.3196,0.2909,0.2828,0.2769,0.274,0.2676,0.2604,0.2528,0.2451,0.2471,0.2582,0.2759,0.2825,0.2576,0.2535,0.2741,0.2751,0.2705,0.2623,0.2502,0.2403,0.2323,0.2561,0.2713,0.2908,0.2663,0.2552,0.2467,0.2437,0.2367,0.2303,0.224,0.2172,0.218,0.2717,0.2946,0.3146,0.2713,0.2553,0.2521,0.2475,0.2438,0.2392,0.2333,0.2276,0.2264,0.2493,0.2916,0.2822,0.2582,0.2469,0.2614,0.2627,0.2538,0.2471,0.2379,0.2288,0.2227,0.2546,0.2838,0.2663,0.2457,0.2441,0.2366,0.2308,0.2264,0.2206,0.2155,0.21,0.2114,0.2848,0.3006,0.282,0.2466,0.23,0.2235,0.2198,0.2154,0.2119,0.2077,0.2028,0.2177,0.2772,0.277,0.2619,0.2692,0.2763,0.2612,0.2554,0.2546,0.2493,0.2387,0.2293,0.2268,0.2692,0.2986,0.276,0.2684,0.2456,0.2408,0.2356,0.2503,0.2402,0.2304,0.2219,0.2183,0.2531,0.3002,0.2761,0.2519,0.24,0.2493,0.2489,0.2467,0.2439,0.2334,0.2244,0.2204,0.2473,0.2803,0.2826,0.2721,0.2532,0.2441,0.2588,0.2644,0.2564,0.2475,0.2369,0.2348,0.2646,0.2993,0.2964,0.2828,0.2887,0.2904,0.2942,0.2984,0.284,0.2711,0.2597,0.2505,0.2564,0.3094,0.2885,0.2617,0.2449,0.2396,0.2354,0.2306,0.2255,0.2204,0.2146,0.2132,0.2672,0.3166,0.3226,0.2875,0.2751,0.2698,0.2745,0.2769,0.2647,0.2549,0.2461,0.2438,0.2752,0.3158,0.3081,0.2861,0.2622,0.2759,0.2678,0.2649,0.2536,0.2441,0.2361,0.2297,0.2842,0.3152,0.3277,0.2919,0.2741,0.2697,0.2657,0.2608,0.2542,0.2479,0.2408,0.2394,0.2854,0.3049,0.2952,0.2878,0.2683,0.2605,0.2612,0.2819,0.2686,0.2572,0.2477,0.2397,0.2678,0.3073,0.3022,0.2846,0.2621,0.2532,0.2497,0.2448,0.2381,0.2314,0.2253,0.2194,0.2553,0.2934,0.2718,0.2429,0.2335,0.2407,0.2365,0.2298,0.2231,0.2163,0.2102,0.2062,0.2577,0.2959,0.2969,0.2722,0.2515,0.2463,0.2501,0.2442,0.2363,0.228,0.2209,0.2167,0.2747,0.303,0.3123,0.283,0.2692,0.2703,0.2654,0.2559,0.2488,0.2414,0.2337,0.2322,0.2728,0.3093,0.3199,0.2928,0.2754,0.2663,0.263,0.2745,0.2684,0.2593,0.2506,0.247,0.3033,0.3125,0.315,0.3009,0.2828,0.2755,0.2722,0.2633,0.254,0.2461,0.2385,0.2386,0.2807,0.3176,0.3232,0.2938,0.2726,0.2668,0.276,0.2701,0.2616,0.2522,0.244,0.2368,0.2783,0.3201,0.293,0.2697,0.251,0.2519,0.2508,0.2463,0.2427,0.2352,0.2282,0.2335,0.2772,0.3108,0.3166,0.3051,0.2964,0.2907,0.2852,0.2789,0.2744,0.265,0.2547,0.2473,0.2611,0.2901,0.3,0.2979,0.2853,0.303,0.289,0.2821,0.2809,0.271,0.2591,0.2489,0.2654,0.2648,0.272,0.2416,0.2258,0.2205,0.2232,0.2291,0.2223,0.2156,0.2098,0.2065,0.2736,0.2897,0.292,0.2591,0.2397,0.2335,0.2475,0.2395,0.231,0.2231,0.216,0.2178,0.266,0.3186,0.3307,0.2986,0.2801,0.2719,0.2681,0.2659,0.2627,0.2547,0.2464,0.2393,0.2456,0.2551,0.2438,0.2361,0.2298,0.2229,0.2208,0.226,0.2212,0.2153,0.2088,0.203,0.2475,0.2612,0.2436,0.2158,0.2042,0.1995,0.1966,0.1946,0.1913,0.1881,0.1851,0.1867,0.2607,0.2694,0.2939,0.2865,0.2612,0.2514,0.2518,0.2514,0.2396,0.2322,0.2237,0.2313,0.2556,0.2636,0.2716]}];
+const S = Object.fromEntries(D.map(d => [d.id, d]));
+const f1 = (x, d = 1) => x.toLocaleString("es-MX", { minimumFractionDigits: d, maximumFractionDigits: d });
+const signo = (x, d = 1) => (x > 0 ? "+" : x < 0 ? "−" : "") + f1(Math.abs(x), d);
+const CASOS = {
+  mor_temp: { lugar: "Morelos", variable: "Temperatura", icono: "sol", factor: 1, unidad: "°", unidadLarga: "°C", dec: 1,
+    sube: "Más calor que antes", baja: "Más fresco que antes",
+    significa: { sube: "Más días de calor y de ventilador, más riesgo de golpe de calor y más agua para regar en primavera.", baja: "Menos calor que antes." } },
+  mor_lluvia: { lugar: "Morelos", variable: "Lluvia del año", icono: "nube", factor: 12, unidad: "mm", unidadLarga: "mm", dec: 0,
+    sube: "Llueve más que antes", baja: "Llueve menos que antes",
+    significa: { nada: "Por ahora no hay razón para cambiar planes por la lluvia. Hay que seguir midiendo varios años más." } },
+  sahel_suelo: { lugar: "Sahel, África", variable: "Agua en el suelo", icono: "planta", factor: 100, unidad: "%", unidadLarga: "%", dec: 1,
+    sube: "El suelo tiene más agua", baja: "El suelo tiene menos agua",
+    significa: { sube: "Más agua para cultivos y pastos que en los años 80, cuando hubo grandes sequías." } },
+  nmx_suelo: { lugar: "Norte de México", variable: "Agua en el suelo", icono: "planta", factor: 100, unidad: "%", unidadLarga: "%", dec: 1,
+    sube: "El suelo tiene más agua", baja: "El suelo se está secando",
+    significa: { baja: "Cultivos y ganado necesitan más riego que antes." } },
+};
+function analizar(id) {
+  const d = S[id], c = CASOS[id], r = Stats.analizar(d.v, d.inicio), v = Stats.veredicto(r);
+  const a = r.anual.filter(x => x.completo).map(x => ({ y: x.y, v: x.v * c.factor }));
+  const A = a.slice(0, 10), B = a.slice(-10), m = arr => arr.reduce((s, x) => s + x.v, 0) / arr.length;
+  const seguro = v.clave === "muy" || v.clave === "si";
+  const caras = Math.max(0, Math.floor(-Math.log2(Math.max(v.p, 1e-300))));
+  return { id, c, r, v, A, B, mA: m(A), mB: m(B), seguro, caras };
+}
+function monedasHTML(R) {
+  const n = R.caras, on = Math.min(n, 10);
+  let txt;
+  if (!R.seguro) txt = n <= 1 ? "Como sacar <b>cara</b> al lanzar una moneda: pasa todo el tiempo. <b>No podemos asegurar que cambió.</b>"
+                              : `Como sacar <b>${n} caras seguidas</b>: pasa seguido. <b>No podemos asegurar que cambió.</b>`;
+  else if (n > 10) txt = `Como sacar <b>más de 10 caras seguidas</b>. Eso casi nunca pasa por suerte: <b>el cambio es real.</b>`;
+  else txt = `Como sacar <b>${n} caras seguidas</b>: pasa 1 vez de cada ${2 ** n}. <b>Es muy probable que el cambio sea real.</b>`;
+  return `<div class="monedas" aria-hidden="true">${Array.from({ length: 10 }, (_, i) => `<i class="${i < on ? "on" : ""}">${i < on ? "C" : ""}</i>`).join("")}</div><p>${txt}</p>`;
+}
+function desdeHTML(R, anio) {
+  const c = R.c, inicio = R.r.inicio.y, desde = Math.max(anio, inicio), anios = (R.r.fin.y + 1) - desde;
+  if (anio > R.r.fin.y || anios < 1) return "";
+  const pre = anio < inicio ? `Desde ${inicio} (cuando empiezan estos datos)` : `Desde que naciste (${anio})`;
+  if (!R.seguro) return `<div class="desde">${pre}: <b>sin cambio claro.</b></div>`;
+  const nivel = t => (R.r.meanAll + R.r.b * (t - R.r.tm)) * c.factor;
+  const v0 = nivel(desde + .5), v1 = nivel(R.r.fin.y + .5);
+  const txt = c.icono === "sol" ? `Morelos se calentó <b>${signo(v1 - v0, 1)} °C</b> (de ${f1(v0)}° a ${f1(v1)}°).`
+    : `El suelo pasó de <b>${f1(v0)} %</b> a <b>${f1(v1)} %</b> de agua.`;
+  return `<div class="desde">${pre}: ${txt}</div>`;
+}
+function tarjeta(R, anio) {
+  const c = R.c, dir = R.mB > R.mA ? "sube" : "baja";
+  const tono = !R.seguro ? "flat" : (c.icono === "sol" ? (dir === "sube" ? "hot" : "wet") : (dir === "sube" ? "wet" : "hot"));
+  const col = tono === "hot" ? "var(--hot)" : tono === "wet" ? "var(--wet)" : "var(--muted)";
+  const titulo = R.seguro ? `${dir === "sube" ? "▲" : "▼"} ${c[dir]}` : "≈ Sin cambio claro";
+  const significa = R.seguro ? (c.significa[dir] || "") : (c.significa.nada || "Con estos datos todavía no podemos decir que haya cambiado.");
+  const delta = c.unidad === "°" ? `${signo(R.mB - R.mA, 1)}°` : `${signo(100 * (R.mB - R.mA) / R.mA, 0)} %`;
+  return `<article class="card">
+    <div class="top ${tono}">
+      <div class="lugar"><div><b>${c.lugar}</b><span>${c.variable}</span></div><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#${c.icono}" fill="${col}" stroke="${col}"/></svg></div>
+      <div class="numeros">
+        <div class="num"><small>Antes (${R.A[0].y}–${String(R.A.at(-1).y).slice(2)})</small><b>${f1(R.mA, c.dec)}<span>${c.unidad}</span></b></div>
+        <div class="flecha" aria-hidden="true">→</div>
+        <div class="num"><small>Hoy (${R.B[0].y}–${String(R.B.at(-1).y).slice(2)})</small><b>${f1(R.mB, c.dec)}<span>${c.unidad}</span></b></div>
+      </div>
+      <div class="veredicto" style="color:${col}">${titulo} <span style="font-size:.85em;font-weight:600;color:var(--muted)">${R.seguro ? delta : `(${delta}, puede ser suerte)`}</span></div>
+    </div>
+    <div class="cuerpo">
+      <div class="bloque"><h3>¿Es seguro?</h3>${monedasHTML(R)}</div>
+      <div class="bloque"><h3>¿Qué significa?</h3><p>${significa}</p></div>
+      ${desdeHTML(R, anio)}
+    </div></article>`;
+}
+const R = Object.fromEntries(Object.keys(CASOS).map(id => [id, analizar(id)]));
+function render() {
+  let anio = parseInt(document.getElementById("anio").value, 10); if (!isFinite(anio)) anio = 2005;
+  document.getElementById("contenido").innerHTML = `
+    <section class="seccion"><h2>Morelos, México<small>Temperatura y lluvia, 2000–2025</small></h2>
+      <div class="grid">${tarjeta(R.mor_temp, anio)}${tarjeta(R.mor_lluvia, anio)}</div></section>
+    <section class="seccion"><h2>Dos lugares, direcciones opuestas<small>El mismo calentamiento del planeta mueve las lluvias de lugar: un suelo gana agua y otro la pierde.</small></h2>
+      <div class="grid">${tarjeta(R.sahel_suelo, anio)}${tarjeta(R.nmx_suelo, anio)}</div></section>`;
+}
+document.getElementById("anio").addEventListener("input", render);
+render();
+</script>

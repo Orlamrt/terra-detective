@@ -1,0 +1,275 @@
+<title>Terra Mundo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: el planeta ocupa la pantalla; a la derecha, la tarjeta del lugar elegido y el Detective */
+:root{
+  --bg:#E9EEF0; --surface:#FFFFFF; --sunk:#F3F6F7; --ink:#14222B; --muted:#5B6B73; --line:#D3DCE0;
+  --space:#DCE5EA; --ocean:#C9D9E3; --land-line:rgba(20,34,43,.55); --grat:rgba(20,34,43,.08);
+  --accent:#0E6E6B; --accent-ink:#FFFFFF; --warm:#C8463A; --cool:#2D6AB3; --mark:#D9A21B;
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif; --f-body:"Inter","Segoe UI",system-ui,sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0B1217;--surface:#152129;--sunk:#111B21;--ink:#E4ECEE;--muted:#93A4AC;--line:#26353E;--space:#070D11;--ocean:#13222C;--land-line:rgba(228,236,238,.55);--grat:rgba(228,236,238,.07);--accent:#3DB0A6;--accent-ink:#06211F;--warm:#F07A62;--cool:#6EA4EA;--mark:#F2C14E;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0B1217;--surface:#152129;--sunk:#111B21;--ink:#E4ECEE;--muted:#93A4AC;--line:#26353E;--space:#070D11;--ocean:#13222C;--land-line:rgba(228,236,238,.55);--grat:rgba(228,236,238,.07);--accent:#3DB0A6;--accent-ink:#06211F;--warm:#F07A62;--cool:#6EA4EA;--mark:#F2C14E;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px}
+.app{max-width:1400px;margin:0 auto;display:flex;flex-direction:column;gap:12px;min-height:100%}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+header h1{font-family:var(--f-display);font-weight:700;font-size:1.4rem;margin:0}
+header small{display:block;font-family:var(--f-mono);font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.aviso{margin-left:auto;font-size:.8rem;background:var(--surface);border:1px dashed var(--mark);border-radius:8px;padding:6px 10px;max-width:520px}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:12px;flex:1;min-height:0}
+@media (max-width:980px){.grid{grid-template-columns:1fr}}
+.mapa{position:relative;background:var(--space);border-radius:14px;overflow:hidden;min-height:520px;border:1px solid var(--line)}
+.mapa canvas{position:absolute;inset:0;display:block;width:100%;height:100%;cursor:grab;touch-action:none}
+.mapa canvas:active{cursor:grabbing}
+.capas{position:absolute;top:12px;left:12px;display:flex;flex-wrap:wrap;gap:6px;max-width:calc(100% - 24px)}
+.capa{font:inherit;font-size:.85rem;font-weight:600;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 12px;cursor:pointer}
+.capa[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.capa small{font-weight:500;font-size:.68rem;opacity:.75}
+.capa:focus-visible,.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.leyenda{position:absolute;left:12px;bottom:12px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:.8rem;display:flex;flex-direction:column;gap:5px;max-width:calc(100% - 24px)}
+.barra{height:10px;width:220px;max-width:100%;border-radius:5px}
+.extremos{display:flex;justify-content:space-between;gap:12px;color:var(--muted)}
+.lugares{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.btn{font:inherit;font-weight:600;font-size:.85rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:7px 11px;cursor:pointer}
+.btn.prim{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.volver{position:absolute;top:12px;right:12px}
+.pista{position:absolute;left:50%;top:60px;transform:translateX(-50%);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:.85rem;white-space:nowrap;pointer-events:none}
+.lado{display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;min-width:0}
+.panel-h{padding:10px 14px;border-bottom:1px solid var(--line);font-family:var(--f-mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+.tc{display:flex;flex-direction:column}
+.tc-top{padding:14px 16px 12px;display:flex;flex-direction:column;gap:10px;background:var(--sunk)}
+.tc-top.hot{background:color-mix(in srgb,var(--warm) 16%,var(--surface))}.tc-top.wet{background:color-mix(in srgb,var(--cool) 16%,var(--surface))}
+.tc-lugar{display:flex;justify-content:space-between;gap:10px}
+.tc-lugar b{font-family:var(--f-display);font-size:1.15rem;display:block;line-height:1.15}.tc-lugar span{font-size:.85rem;color:var(--muted)}
+.tc-num{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:6px}
+.tc-num small{display:block;font-size:.78rem;color:var(--muted)}
+.tc-num b{font-family:var(--f-display);font-weight:700;font-size:2.1rem;line-height:1;font-variant-numeric:tabular-nums}
+.tc-num b span{font-size:.45em;font-weight:500;margin-left:2px}
+.tc-ver{font-family:var(--f-display);font-weight:700;font-size:1.05rem}
+.tc-cuerpo{padding:12px 16px 14px;display:flex;flex-direction:column;gap:10px;font-size:.92rem}
+.tc-cuerpo h4{margin:0 0 4px;font-size:.7rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.tc-cuerpo p{margin:0}
+.monedas{display:flex;gap:4px;margin-bottom:5px}.monedas i{width:16px;height:16px;border-radius:50%;background:var(--line)}.monedas i.on{background:var(--mark)}
+.vacio{padding:16px;display:flex;flex-direction:column;gap:10px;font-size:.92rem}
+.vacio .coords{font-family:var(--f-mono);font-size:.8rem;color:var(--muted)}
+.esqueleto{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.esqueleto div{background:var(--sunk);border-radius:8px;padding:10px;font-size:.8rem;color:var(--muted)}
+.chat{padding:12px 14px;display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto}
+.msg{font-size:.88rem;padding:8px 11px;border-radius:10px;max-width:95%}
+.msg.det{background:var(--sunk);border:1px solid var(--line);align-self:flex-start}
+.msg.yo{background:var(--accent);color:var(--accent-ink);align-self:flex-end}
+form.ask{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line)}
+form.ask input{flex:1;min-width:0;font:inherit;font-size:.9rem;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk);color:var(--ink)}
+footer{font-size:.75rem;color:var(--muted)}
+</style>
+
+<div class="app">
+  <header>
+    <svg width="32" height="32" viewBox="0 0 34 34" aria-hidden="true"><circle cx="15" cy="15" r="11" fill="none" stroke="var(--accent)" stroke-width="3"/><path d="M5 13 Q15 8 25 13 M6 19 Q15 24 24 19 M15 4 Q9 15 15 26" fill="none" stroke="var(--accent)" stroke-width="1.6"/><path d="M23 23 L31 31" stroke="var(--warm)" stroke-width="4" stroke-linecap="round"/></svg>
+    <div><h1>Terra Mundo</h1><small>Detective de tendencias · NASA Space Apps 2026</small></div>
+    <p class="aviso"><b>Vista previa.</b> Los colores del mapa son ilustrativos; se reemplazarán por tendencias calculadas con datos de la NASA. Las tarjetas de Morelos, Sahel y norte de México ya usan datos reales.</p>
+  </header>
+  <div class="grid">
+    <section class="mapa" id="mapa" aria-label="Planeta interactivo">
+      <canvas id="cv" aria-label="Globo terrestre pintado según la tendencia de la variable elegida"></canvas>
+      <div class="capas" id="capas" role="group" aria-label="Variable del mapa"></div>
+      <p class="pista" id="pista">Arrastra para girar · toca un lugar para investigarlo</p>
+      <button class="btn volver" id="volver" type="button" hidden>← Volver al globo</button>
+      <div class="leyenda"><b id="leyT">Temperatura del aire</b><div class="barra" id="barra"></div><div class="extremos"><span id="leyL">Baja</span><span id="leyR">Sube</span></div><span>● punto = el cambio es seguro</span></div>
+      <div class="lugares"><span style="font-size:.75rem;color:var(--muted)">Ir a un caso con datos reales</span><button class="btn" type="button" data-ir="morelos">Morelos</button><button class="btn" type="button" data-ir="sahel">Sahel</button><button class="btn" type="button" data-ir="nmx">Norte de México</button></div>
+    </section>
+    <aside class="lado">
+      <section class="panel" aria-label="Tarjeta del lugar elegido"><div class="panel-h"><span>Lugar elegido</span><span id="capaTag">—</span></div><div id="tarjeta"></div></section>
+      <section class="panel" aria-label="Detective"><div class="panel-h"><span>Detective</span><span>IA en la versión final</span></div>
+        <div class="chat" id="chat"></div>
+        <form class="ask" id="ask"><input id="q" autocomplete="off" placeholder="¿Por qué aquí sube y allá baja?" aria-label="Pregunta al Detective"><button class="btn prim" type="submit">Preguntar</button></form>
+      </section>
+    </aside>
+  </div>
+  <footer>Datos reales en tarjetas: NASA Giovanni (FLDAS, GPM IMERG). Mapa final previsto: MERRA-2 (temperatura), GPM IMERG (lluvia), GLDAS (humedad del suelo), MODIS (verdor), 2000–2025, tendencia y significancia por celda de ~2°.</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script>/*STATS*/</script>
+<script>
+const LAND_TOPO = /*LAND*/;
+const DATOS = /*DATOS*/;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const POR_ID = Object.fromEntries(DATOS.map(d => [d.id, d]));
+const CACHE = {}; const analisis = id => CACHE[id] ||= Stats.analizar(POR_ID[id].v, POR_ID[id].inicio);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------- capas ---------- */
+const CAPAS = {
+  temp:   { nombre: "Temperatura", titulo: "Temperatura del aire", ico: "🌡️", L: "Se enfría", R: "Se calienta", pal: ["#2D5DA8", "#8DB2DF", "#F2EDE6", "#F0A07F", "#C2341F"], tierra: false },
+  lluvia: { nombre: "Lluvia", titulo: "Lluvia", ico: "🌧️", L: "Más seco", R: "Más lluvioso", pal: ["#8C5A1E", "#D3B07A", "#F1EEE6", "#7FB6DE", "#1F5FAE"], tierra: false },
+  suelo:  { nombre: "Humedad del suelo", titulo: "Agua en el suelo", ico: "🌱", L: "Se seca", R: "Se humedece", pal: ["#7A4A14", "#CFA56C", "#F1EEE6", "#79C1B0", "#16776A"], tierra: true },
+  verdor: { nombre: "Verdor", titulo: "Verdor de la vegetación", ico: "🌿", L: "Menos verde", R: "Más verde", pal: ["#7A4A14", "#CFA56C", "#F1EEE6", "#8CC77A", "#2E7D32"], tierra: true, pronto: true },
+};
+let capa = "temp";
+// Patrón ILUSTRATIVO (no son datos): solo para mostrar cómo se verá el mapa
+function patron(c, lon, lat) {
+  const r = Math.PI / 180;
+  if (c === "temp") return Math.max(-1, Math.min(1, .25 + .55 * Math.max(0, (lat - 25) / 65) + .18 * Math.sin(lon * r * 2.3) * Math.cos(lat * r * 3) - .25 * Math.max(0, (-lat - 50) / 40)));
+  if (c === "lluvia") return .75 * Math.sin(lat * r * 4.2 + lon * r * 1.1) * Math.cos(lon * r * 1.6 + .5);
+  if (c === "suelo") return .7 * Math.sin(lon * r * 2.1 + lat * r * 2.8 + 1) * Math.cos(lat * r * 2.2);
+  return Math.max(-1, Math.min(1, .35 + .45 * Math.sin(lon * r * 1.9 + 1.2) * Math.cos(lat * r * 3.1)));
+}
+const PASO = 5;
+const celdas = [];
+for (let lat = -90; lat < 90; lat += PASO) for (let lon = -180; lon < 180; lon += PASO)
+  celdas.push({ lon: lon + PASO / 2, lat: lat + PASO / 2, geo: { type: "Polygon", coordinates: [[[lon, lat], [lon, lat + PASO], [lon + PASO, lat + PASO], [lon + PASO, lat], [lon, lat]]] } });
+const land = topojson.feature(LAND_TOPO, LAND_TOPO.objects.land);
+const grat = d3.geoGraticule10();
+const escala = c => d3.scaleLinear().domain([-1, -.5, 0, .5, 1]).range(CAPAS[c].pal).clamp(true);
+
+/* ---------- casos con datos reales ---------- */
+const LUGARES = {
+  morelos: { nombre: "Morelos, México", lon: -99.07, lat: 18.74, bbox: [-99.5, 18.33, -98.63, 19.14], series: { temp: "mor_temp", lluvia: "mor_lluvia", suelo: "mor_suelo" } },
+  sahel:   { nombre: "Sahel, África", lon: 2.5, lat: 14.5, bbox: [-15, 12, 20, 17], series: { suelo: "sahel_suelo", lluvia: "sahel_lluvia" } },
+  nmx:     { nombre: "Norte de México", lon: -108, lat: 28.5, bbox: [-112, 26, -104, 31], series: { suelo: "nmx_suelo" } },
+};
+const CFG = {
+  mor_temp: { variable: "Temperatura", f: 1, u: "°", dec: 1, calor: true, sube: "Más calor que antes", baja: "Más fresco que antes", sig: { sube: "Más días de calor y de ventilador, y más agua para regar en primavera." } },
+  mor_lluvia: { variable: "Lluvia del año", f: 12, u: "mm", dec: 0, sube: "Llueve más que antes", baja: "Llueve menos que antes", sig: { nada: "Por ahora no hay razón para cambiar planes por la lluvia. Hay que seguir midiendo." } },
+  sahel_lluvia: { variable: "Lluvia del año", f: 365.25, u: "mm", dec: 0, sube: "Llueve más que antes", baja: "Llueve menos que antes", sig: { sube: "Más agua para cultivos y pastos que hace 25 años." } },
+  mor_suelo: { variable: "Agua en el suelo", f: 100, u: "%", dec: 1, sube: "El suelo tiene más agua", baja: "El suelo se está secando", sig: {} },
+  sahel_suelo: { variable: "Agua en el suelo", f: 100, u: "%", dec: 1, sube: "El suelo tiene más agua", baja: "El suelo se está secando", sig: { sube: "Más agua para cultivos y pastos que en los años 80, cuando hubo grandes sequías." } },
+  nmx_suelo: { variable: "Agua en el suelo", f: 100, u: "%", dec: 1, sube: "El suelo tiene más agua", baja: "El suelo se está secando", sig: { baja: "Cultivos y ganado necesitan más riego que antes." } },
+};
+const f1 = (x, d = 1) => x.toLocaleString("es-MX", { minimumFractionDigits: d, maximumFractionDigits: d });
+const sg1 = (x, d = 1) => (x > 0 ? "+" : x < 0 ? "−" : "") + f1(Math.abs(x), d);
+const prom = a => a.reduce((s, x) => s + x.v, 0) / a.length;
+function tarjetaReal(lugar, id) {
+  const c = CFG[id], r = analisis(id), v = Stats.veredicto(r), seguro = v.clave === "muy" || v.clave === "si";
+  const a = r.anual.filter(x => x.completo).map(x => ({ y: x.y, v: x.v * c.f })), A = a.slice(0, 10), B = a.slice(-10), mA = prom(A), mB = prom(B);
+  const dir = mB > mA ? "sube" : "baja", tono = !seguro ? "" : (c.calor ? (dir === "sube" ? "hot" : "wet") : (dir === "sube" ? "wet" : "hot"));
+  const col = tono === "hot" ? "var(--warm)" : tono === "wet" ? "var(--cool)" : "var(--muted)";
+  const delta = c.u === "°" ? `${sg1(mB - mA)}°` : `${sg1(100 * (mB - mA) / mA, 0)} %`;
+  const n = Math.max(0, Math.floor(-Math.log2(Math.max(v.p, 1e-300)))), on = Math.min(10, n);
+  const mon = !seguro ? (n <= 1 ? "Como sacar <b>cara</b> al lanzar una moneda: pasa todo el tiempo. <b>No podemos asegurar que cambió.</b>" : `Como sacar <b>${n} caras seguidas</b>: pasa seguido. <b>No podemos asegurar que cambió.</b>`)
+    : n > 10 ? "Como sacar <b>más de 10 caras seguidas</b>: <b>el cambio es real.</b>" : `Como sacar <b>${n} caras seguidas</b>: pasa 1 vez de cada ${2 ** n}. <b>${v.clave === "muy" ? "Es muy probable que sea real." : "Probablemente es real, con menos margen."}</b>`;
+  const sig = seguro ? (c.sig[dir] || "") : (c.sig.nada || "Con estos datos todavía no podemos decir que haya cambiado.");
+  const per = arr => `${arr[0].y}–${String(arr.at(-1).y).slice(2)}`;
+  return `<article class="tc"><div class="tc-top ${tono}"><div class="tc-lugar"><div><b>${esc(lugar.nombre)}</b><span>${c.variable} · datos reales NASA</span></div></div>
+    <div class="tc-num"><div><small>Antes (${per(A)})</small><b>${f1(mA, c.dec)}<span>${c.u}</span></b></div><div style="color:var(--muted);font-size:1.3rem;padding-bottom:4px">→</div><div><small>Hoy (${per(B)})</small><b>${f1(mB, c.dec)}<span>${c.u}</span></b></div></div>
+    <div class="tc-ver" style="color:${col}">${seguro ? `${dir === "sube" ? "▲" : "▼"} ${c[dir]}` : "≈ Sin cambio claro"} <span style="font-size:.8em;color:var(--muted)">${seguro ? delta : `(${delta}, puede ser suerte)`}</span></div></div>
+    <div class="tc-cuerpo"><div><h4>¿Es seguro?</h4><div class="monedas" aria-hidden="true">${Array.from({ length: 10 }, (_, i) => `<i class="${i < on ? "on" : ""}"></i>`).join("")}</div><p>${mon}</p></div>${sig ? `<div><h4>¿Qué significa?</h4><p>${sig}</p></div>` : ""}</div></article>`;
+}
+function tarjetaVacia(lon, lat, nombre) {
+  const C = CAPAS[capa];
+  return `<div class="vacio"><b style="font-family:var(--f-display);font-size:1.1rem">${esc(nombre || "Lugar elegido")}</b><span class="coords">${f1(Math.abs(lat))}° ${lat >= 0 ? "N" : "S"}, ${f1(Math.abs(lon))}° ${lon >= 0 ? "E" : "O"} · cuadro de ~200 km</span>
+    <p>Aquí aparecerá la tarjeta de <b>${C.titulo.toLowerCase()}</b> para este lugar, calculada con datos de la NASA:</p>
+    <div class="esqueleto"><div><b>Antes → Hoy</b><br>promedio de 10 años</div><div><b>¿Es seguro?</b><br>monedas</div><div><b>¿Qué significa?</b><br>en palabras simples</div><div><b>Desde que naciste</b><br>cuánto cambió</div></div>
+    <p style="color:var(--muted);font-size:.85rem">${C.pronto ? "Esta capa llegará después de las otras tres." : "Por ahora hay datos reales en Morelos, Sahel y norte de México."}</p></div>`;
+}
+
+/* ---------- proyección globo → mapa ---------- */
+const cv = $("cv"), ctx = cv.getContext("2d");
+let W = 0, H = 0, DPR = 1;
+const mezcla = d3.geoProjectionMutator(t => (x, y) => { const a = d3.geoOrthographicRaw(x, y), b = d3.geoEquirectangularRaw(x, y); return [a[0] * (1 - t) + b[0] * t, a[1] * (1 - t) + b[1] * t]; });
+let tPlano = 0, rot = [60, -15], seleccion = null, girando = !reduce;
+const proj = mezcla(0).precision(.5);
+const path = d3.geoPath(proj, ctx);
+const sGlobo = () => Math.min(W, H) / 2.15, sMapa = () => W / (70 * Math.PI / 180);
+function configurar() {
+  const t = tPlano, s = sGlobo() * (1 - t) + sMapa() * t;
+  const latc = seleccion ? seleccion.lat : 0;
+  mezcla(t); proj.scale(s).rotate([rot[0], rot[1] * (1 - t), 0]).translate([W / 2, H / 2 + t * s * latc * Math.PI / 180]).clipAngle(t < .999 ? 90 + t * 89 : null);
+}
+function tamanio() { const r = cv.getBoundingClientRect(); DPR = Math.min(2, devicePixelRatio || 1); W = r.width; H = r.height; cv.width = W * DPR; cv.height = H * DPR; dibujar(); }
+let COL = {};
+function colores() { COL = { ocean: css("--ocean"), space: css("--space"), line: css("--land-line"), grat: css("--grat"), ink: css("--ink"), surface: css("--surface"), accent: css("--accent"), mark: css("--mark") }; }
+function dibujar() {
+  if (!W) return;
+  configurar();
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
+  ctx.beginPath(); path({ type: "Sphere" }); ctx.fillStyle = COL.ocean; ctx.fill();
+  const C = CAPAS[capa], esc_ = escala(capa);
+  ctx.save();
+  if (C.tierra) { ctx.beginPath(); path(land); ctx.clip(); }
+  for (const c of celdas) { const v = patron(capa, c.lon, c.lat); ctx.beginPath(); path(c.geo); ctx.fillStyle = esc_(v); ctx.globalAlpha = C.tierra ? .95 : .82; ctx.fill(); }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = COL.ink;
+  for (const c of celdas) { if (Math.abs(patron(capa, c.lon, c.lat)) < .5) continue; const p = visible(c.lon, c.lat); if (p) { ctx.beginPath(); ctx.arc(p[0], p[1], 1.4, 0, 7); ctx.globalAlpha = .55; ctx.fill(); } }
+  ctx.restore(); ctx.globalAlpha = 1;
+  ctx.beginPath(); path(grat); ctx.strokeStyle = COL.grat; ctx.lineWidth = 1; ctx.stroke();
+  ctx.beginPath(); path(land); ctx.strokeStyle = COL.line; ctx.lineWidth = .8; ctx.stroke();
+  ctx.beginPath(); path({ type: "Sphere" }); ctx.strokeStyle = COL.line; ctx.lineWidth = 1; ctx.stroke();
+  for (const [k, L] of Object.entries(LUGARES)) { const p = visible(L.lon, L.lat); if (!p) continue;
+    ctx.beginPath(); ctx.arc(p[0], p[1], 6, 0, 7); ctx.fillStyle = COL.surface; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = COL.accent; ctx.stroke();
+    ctx.font = "600 12px Inter, system-ui, sans-serif"; ctx.fillStyle = COL.ink; ctx.lineWidth = 3; ctx.strokeStyle = COL.surface; ctx.strokeText(L.nombre, p[0] + 10, p[1] + 4); ctx.fillText(L.nombre, p[0] + 10, p[1] + 4); }
+  if (seleccion) { const b = seleccion.bbox || [seleccion.lon - 1, seleccion.lat - 1, seleccion.lon + 1, seleccion.lat + 1];
+    ctx.beginPath(); path({ type: "Polygon", coordinates: [[[b[0], b[1]], [b[0], b[3]], [b[2], b[3]], [b[2], b[1]], [b[0], b[1]]]] }); ctx.strokeStyle = COL.mark; ctx.lineWidth = 2.5; ctx.stroke(); }
+}
+function visible(lon, lat) {
+  if (tPlano < .5) { const d = d3.geoDistance([lon, lat], [-proj.rotate()[0], -proj.rotate()[1]]); if (d > Math.PI / 2 - .02) return null; }
+  const p = proj([lon, lat]); return p && p[0] > -20 && p[0] < W + 20 && p[1] > -20 && p[1] < H + 20 ? p : null;
+}
+function invertir(x, y) {
+  const s = proj.scale(), t = proj.translate(), r = proj.rotate();
+  const P = tPlano > .5 ? d3.geoEquirectangular() : d3.geoOrthographic().clipAngle(90);
+  return P.scale(s).translate(t).rotate(r).invert([x, y]);
+}
+
+/* ---------- interacción ---------- */
+let arr = null, movido = false;
+cv.addEventListener("pointerdown", e => { arr = { x: e.clientX, y: e.clientY, r: [...rot] }; movido = false; girando = false; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener("pointermove", e => { if (!arr) return; const dx = e.clientX - arr.x, dy = e.clientY - arr.y; if (Math.hypot(dx, dy) > 4) movido = true;
+  const k = tPlano > .5 ? 180 / Math.PI / proj.scale() : 0.25; rot = [arr.r[0] + dx * k * (tPlano > .5 ? 1 : 1.6), tPlano > .5 ? arr.r[1] : Math.max(-80, Math.min(80, arr.r[1] - dy * k * 1.6))]; dibujar(); });
+cv.addEventListener("pointerup", e => { const fueClic = arr && !movido; arr = null; if (!fueClic) return;
+  const r = cv.getBoundingClientRect(), ll = invertir(e.clientX - r.left, e.clientY - r.top); if (!ll || !isFinite(ll[0])) return; elegir(ll[0], ll[1]); });
+function cercano(lon, lat) { for (const [k, L] of Object.entries(LUGARES)) { const b = L.bbox; if (lon >= b[0] - 1.5 && lon <= b[2] + 1.5 && lat >= b[1] - 1.5 && lat <= b[3] + 1.5) return k; } return null; }
+function elegir(lon, lat, clave = cercano(lon, lat)) {
+  const L = clave ? LUGARES[clave] : null;
+  seleccion = L ? { lon: L.lon, lat: L.lat, bbox: L.bbox, clave } : { lon, lat, clave: null };
+  volar(seleccion.lon, seleccion.lat, 1);
+  mostrarTarjeta(); narrar();
+}
+function volar(lon, lat, destinoT) {
+  const r0 = [...rot], r1 = [-lon, -lat], t0 = tPlano, dur = reduce ? 1 : 1300, ini = performance.now();
+  $("pista").hidden = true; $("volver").hidden = destinoT === 0;
+  const paso = now => { const k = Math.min(1, (now - ini) / dur), e = d3.easeCubicInOut(k);
+    rot = [r0[0] + (r1[0] - r0[0]) * e, r0[1] + (r1[1] - r0[1]) * e]; tPlano = t0 + (destinoT - t0) * e; dibujar(); if (k < 1) requestAnimationFrame(paso); };
+  requestAnimationFrame(paso);
+}
+$("volver").onclick = () => { volar(-rot[0], 15, 0); $("volver").hidden = true; setTimeout(() => { seleccion = null; mostrarTarjeta(); dibujar(); girando = !reduce; }, reduce ? 10 : 1400); };
+document.querySelectorAll("[data-ir]").forEach(b => b.onclick = () => { const L = LUGARES[b.dataset.ir]; elegir(L.lon, L.lat, b.dataset.ir); });
+function giro() { if (girando && tPlano === 0 && !arr) { rot[0] += .12; dibujar(); } requestAnimationFrame(giro); }
+
+/* ---------- capas y tarjeta ---------- */
+function pintarCapas() {
+  $("capas").innerHTML = Object.entries(CAPAS).map(([k, c]) => `<button class="capa" type="button" data-c="${k}" aria-pressed="${k === capa}"><span aria-hidden="true">${c.ico}</span>${c.nombre}${c.pronto ? " <small>próximamente</small>" : ""}</button>`).join("");
+  const C = CAPAS[capa]; $("leyT").textContent = C.titulo + " · patrón ilustrativo"; $("leyL").textContent = C.L; $("leyR").textContent = C.R;
+  $("barra").style.background = `linear-gradient(90deg,${C.pal.join(",")})`; $("capaTag").textContent = C.nombre;
+}
+$("capas").addEventListener("click", e => { const b = e.target.closest(".capa"); if (!b) return; capa = b.dataset.c; pintarCapas(); dibujar(); mostrarTarjeta(); });
+function mostrarTarjeta() {
+  if (!seleccion) { $("tarjeta").innerHTML = `<div class="vacio"><b style="font-family:var(--f-display);font-size:1.1rem">Elige un lugar del planeta</b><p>Toca cualquier punto del globo, o usa los botones de abajo a la derecha para ir a un caso con datos reales.</p></div>`; return; }
+  const L = seleccion.clave ? LUGARES[seleccion.clave] : null, id = L && L.series[capa];
+  $("tarjeta").innerHTML = id ? tarjetaReal(L, id) : tarjetaVacia(seleccion.lon, seleccion.lat, L && L.nombre);
+}
+const chat = $("chat");
+function burbuja(q, html) { const d = document.createElement("div"); d.className = "msg " + q; d.innerHTML = html; chat.append(d); chat.scrollTop = chat.scrollHeight; }
+function narrar() {
+  const L = seleccion.clave ? LUGARES[seleccion.clave] : null, C = CAPAS[capa];
+  if (L && L.series[capa]) burbuja("det", `Fuimos a <b>${esc(L.nombre)}</b>. La tarjeta muestra la ${C.titulo.toLowerCase()} con datos reales de la NASA. Prueba otra capa arriba del mapa.`);
+  else burbuja("det", `Elegiste ${L ? esc(L.nombre) : "este lugar"}. En la versión final calcularé aquí la tendencia de ${C.titulo.toLowerCase()} y te diré si el cambio es seguro.`);
+}
+$("ask").addEventListener("submit", e => { e.preventDefault(); const q = $("q").value.trim(); if (!q) return; $("q").value = "";
+  burbuja("yo", esc(q)); burbuja("det", "En la versión final, el Detective (con IA) responderá aquí, explicará el patrón del mapa y moverá el globo al lugar del que hablas."); });
+
+burbuja("det", "Hola. El planeta está pintado según cuánto cambia la variable elegida: <b>rojo sube, azul baja</b> (en lluvia y suelo, café = más seco). Toca cualquier lugar para investigarlo.");
+colores(); pintarCapas(); mostrarTarjeta();
+new ResizeObserver(tamanio).observe(cv);
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => { colores(); dibujar(); });
+new MutationObserver(() => { colores(); dibujar(); }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+requestAnimationFrame(giro);
+</script>
