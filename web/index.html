@@ -42,7 +42,14 @@ header small{display:block;font-family:var(--f-mono);font-size:.68rem;letter-spa
 .btn{font:inherit;font-weight:600;font-size:.85rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:7px 11px;cursor:pointer}
 .btn.prim{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .volver{position:absolute;top:12px;right:12px}
-.pista{position:absolute;left:50%;top:60px;transform:translateX(-50%);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:.85rem;white-space:nowrap;pointer-events:none}
+.tiempo{position:absolute;top:52px;left:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 12px 4px 4px;max-width:calc(100% - 24px)}
+.tiempo input{width:clamp(140px,22vw,280px);accent-color:var(--accent);background:linear-gradient(90deg,var(--accent) 0 50%,var(--mark) 50%);height:4px;border-radius:2px}
+.tiempo output{font-size:.8rem;font-variant-numeric:tabular-nums;min-width:9.5em}
+.btn-play{font:inherit;border:1px solid var(--line);background:var(--sunk);color:var(--ink);border-radius:50%;width:30px;height:30px;cursor:pointer}
+.btn-play:focus-visible,.tiempo input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.nota-anio{margin:10px 0 0;padding:10px 12px;border-radius:10px;background:var(--sunk);border-left:3px solid var(--mark);font-size:.88rem}
+.nota-anio p{margin:4px 0 0}.nota-anio .tenue{color:var(--muted);font-size:.8rem}
+.pista{position:absolute;left:50%;top:104px;transform:translateX(-50%);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:.85rem;white-space:nowrap;pointer-events:none}
 .lado{display:flex;flex-direction:column;gap:12px;min-width:0}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;min-width:0}
 .panel-h{padding:10px 14px;border-bottom:1px solid var(--line);font-family:var(--f-mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
@@ -97,9 +104,15 @@ footer{font-size:.75rem;color:var(--muted)}
     <section class="mapa" id="mapa" aria-label="Planeta interactivo">
       <canvas id="cv" aria-label="Globo terrestre pintado según la tendencia de la variable elegida"></canvas>
       <div class="capas" id="capas" role="group" aria-label="Variable del mapa"></div>
+      <div class="tiempo" role="group" aria-label="Línea de tiempo">
+        <button class="capa" type="button" id="modoTendencia" aria-pressed="true">Tendencia</button>
+        <button class="btn-play" type="button" id="playAnios" aria-label="Reproducir los años">▶</button>
+        <input type="range" id="anio" min="2000" max="2050" step="1" value="2025" aria-label="Año" aria-describedby="anioTxt">
+        <output id="anioTxt" for="anio">Tendencia 2000–2025</output>
+      </div>
       <p class="pista" id="pista">Arrastra para girar · toca un lugar para investigarlo</p>
       <button class="btn volver" id="volver" type="button" hidden>← Volver al globo</button>
-      <div class="leyenda"><b id="leyT">Temperatura del aire</b><div class="barra" id="barra"></div><div class="extremos"><span id="leyL">Baja</span><span id="leyR">Sube</span></div><span>● punto = el cambio es seguro</span></div>
+      <div class="leyenda"><b id="leyT">Temperatura del aire</b><div class="barra" id="barra"></div><div class="extremos"><span id="leyL">Baja</span><span id="leyR">Sube</span></div><span id="leyP">● punto = el cambio es seguro</span></div>
       <div class="lugares"><span style="font-size:.75rem;color:var(--muted)">Ir a un caso con datos reales</span><button class="btn" type="button" data-ir="morelos">Morelos</button><button class="btn" type="button" data-ir="sahel">Sahel</button><button class="btn" type="button" data-ir="nmx">Norte de México</button></div>
     </section>
     <aside class="lado">

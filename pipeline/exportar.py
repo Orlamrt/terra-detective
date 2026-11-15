@@ -56,7 +56,7 @@ def exportar(capa: str, cubo: np.ndarray, lats: np.ndarray, lons: np.ndarray, in
     (SALIDA / "capas" / f"{capa}.json").write_text(json.dumps(doc, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     # índice de capas disponibles: la web lo lee para no pedir archivos que no existen
     preferido = ["temp", "lluvia", "suelo", "verdor"]  # el primero es el que abre el globo
-    disponibles = sorted((p.stem for p in (SALIDA / "capas").glob("*.json") if p.stem != "index"),
+    disponibles = sorted((p.stem for p in (SALIDA / "capas").glob("*.json") if p.stem != "index" and not p.stem.endswith("_anual")),
                          key=lambda c: (preferido.index(c) if c in preferido else len(preferido), c))
     (SALIDA / "capas" / "index.json").write_text(json.dumps(disponibles), encoding="utf-8")
     d = SALIDA / "series" / capa
