@@ -90,7 +90,7 @@ function armarResumen(valores, inicio, lugar, capa, ilustrativo) {
     resumen: {
       antes: prom(A), hoy: prom(B),
       antes_periodo: [A[0].y, A[A.length - 1].y], hoy_periodo: [B[0].y, B[B.length - 1].y],
-      unidad: capa.unidad,                                    // la unidad original: "°C", "mm/día", "kg/m²", "NDVI"
+      unidad: capa.unidad,                                    // la unidad original: "°C", "mm/día", "m³/m³", "NDVI"
       pendiente_decada: r.porDecada, ic95: r.icDecada, p,
       veredicto: v.clave,                                     // también acepta el objeto v
       caras: Math.max(0, Math.floor(-Math.log2(Math.max(p, 1e-300)))),
@@ -207,7 +207,7 @@ Al terminar cada paso, el contenedor emite `tarjeta:paso` con `{ paso }` en `det
 |---|---|---|---|---|
 | `temp` | °C | °C, 1 decimal | ×1 | absoluto: "+0.9°" |
 | `lluvia` | mm/día | mm al año, sin decimales | ×365.25 | relativo: "−8 %" (absoluto en mm si `antes` es 0) |
-| `suelo` | kg/m² (0–10 cm) | % de agua en el suelo, 1 decimal | ×1 (en 10 cm, 1 kg/m² = 1 mm de agua en 100 mm de tierra = 1 %) | en puntos: "3 puntos menos" |
+| `suelo` | m³/m³ (0–10 cm) | % de agua en el suelo, 1 decimal | ×100 (0.25 m³/m³ = 25 %) | en puntos: "3 puntos menos" |
 | `verdor` | NDVI (0 a 1) | índice de verdor, 2 decimales | ×1 | absoluto: "+0.04" |
 | otra | la del `resumen` | la del `resumen`, 1 decimal | ×1 | absoluto, sin tono cálido ni frío |
 

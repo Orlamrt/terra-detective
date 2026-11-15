@@ -123,7 +123,7 @@ test.describe("si la tendencia y hoy − antes tienen signos distintos", () => {
   // Pasa cuando un año extremo pesa en un promedio de 10 años: la regresión sube pero el promedio reciente es menor.
   const casos = [
     { capa: "temp", r: { antes: 21.0, hoy: 20.9, pendiente_decada: 0.2 }, dir: "▲", esperado: "+0.20° por década" },
-    { capa: "suelo", r: { antes: 25.0, hoy: 25.4, pendiente_decada: -0.5, unidad: "kg/m²" }, dir: "▼", esperado: "0.5 puntos menos por década" },
+    { capa: "suelo", r: { antes: 0.25, hoy: 0.254, pendiente_decada: -0.005, unidad: "m³/m³" }, dir: "▼", esperado: "0.5 puntos menos por década" },
     { capa: "lluvia", r: { antes: 2.0, hoy: 1.98, pendiente_decada: 0.05, unidad: "mm/día" }, dir: "▲", esperado: "+2.5 % por década" },
   ];
   for (const c of casos) {
@@ -215,7 +215,7 @@ test.describe("desde que naciste", () => {
     assert.match(texto(Tarjeta.html(resumenManual({ veredicto: "no" }), { capa: "temp", anioNacimiento: 2005 })), /Desde que naciste \(2005\): sin cambio claro\./);
   });
   test("en el suelo se dice en puntos", () => {
-    const h = Tarjeta.html(resumenManual({ antes: 28, hoy: 25, pendiente_decada: -1.2, unidad: "kg/m²" }), { capa: "suelo", anioNacimiento: 2005 });
+    const h = Tarjeta.html(resumenManual({ antes: 0.28, hoy: 0.25, pendiente_decada: -0.012, unidad: "m³/m³" }), { capa: "suelo", anioNacimiento: 2005 });
     assert.match(texto(h), /Desde que naciste \(2005\): 2\.4 puntos menos\./);
   });
 });

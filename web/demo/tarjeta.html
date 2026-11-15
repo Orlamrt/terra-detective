@@ -116,15 +116,14 @@ code { font-family: var(--f-mono); font-size: .9em; }
     return new Date(Date.UTC(y0 + Math.floor(k / 12), (k % 12) + 1, 0)).getUTCDate();
   }
   const mismo = (v) => v;
-  const sueloAproximado = (v) => v * 100; // aproximación, NO conversión física
   const mmMesAmmDia = (v, i, inicio) => v / diasDelMes(inicio, i);
   const MAPEO = {
     mor_temp: { capa: "temp", unidad: "°C", adaptar: mismo },
     mor_lluvia: { capa: "lluvia", unidad: "mm/día", adaptar: mmMesAmmDia },
     sahel_lluvia: { capa: "lluvia", unidad: "mm/día", adaptar: mismo },
-    mor_suelo: { capa: "suelo", unidad: "kg/m²", adaptar: sueloAproximado },
-    sahel_suelo: { capa: "suelo", unidad: "kg/m²", adaptar: sueloAproximado },
-    nmx_suelo: { capa: "suelo", unidad: "kg/m²", adaptar: sueloAproximado },
+    mor_suelo: { capa: "suelo", unidad: "m³/m³", adaptar: (v) => v },
+    sahel_suelo: { capa: "suelo", unidad: "m³/m³", adaptar: (v) => v },
+    nmx_suelo: { capa: "suelo", unidad: "m³/m³", adaptar: (v) => v },
   };
 
   /**
@@ -180,7 +179,7 @@ code { font-family: var(--f-mono); font-size: .9em; }
       pendiente_decada: 0.35, ic95: [0.21, 0.49], p: 0.0004, veredicto: "muy", caras: 11, lugar: "Lugar de prueba", ilustrativo: false,
     };
     const op = { anioNacimiento: anio() };
-    $("casoSinDatos").innerHTML = Tarjeta.html({ ...base, antes: null, hoy: null, p: null, lugar: "Golfo de California", unidad: "kg/m²" }, { ...op, capa: "suelo" });
+    $("casoSinDatos").innerHTML = Tarjeta.html({ ...base, antes: null, hoy: null, p: null, lugar: "Golfo de California", unidad: "m³/m³" }, { ...op, capa: "suelo" });
     $("casoIlustrativo").innerHTML = Tarjeta.html({ ...base, ilustrativo: true, lugar: "Patrón de prueba" }, { ...op, capa: "temp" });
     $("casoVerdor").innerHTML = Tarjeta.html({ ...base, antes: 0.4123, hoy: 0.4567, unidad: "NDVI", pendiente_decada: 0.02, ic95: [0.01, 0.03], lugar: "Amazonía" }, { ...op, capa: "verdor" });
     $("casoDesconocida").innerHTML = Tarjeta.html({ ...base, antes: 301.2, hoy: 298.7, unidad: "DU", pendiente_decada: -1.1, ic95: [-1.6, -0.6], veredicto: "si", caras: 6, lugar: "Ártico" }, { ...op, capa: "ozono" });

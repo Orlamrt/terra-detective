@@ -27,19 +27,16 @@ function diasDelMes(inicio, i) {
 
 const mismo = (v) => v;
 
-// OJO: el ×100 del suelo NO es una conversión física. Las muestras son humedad de 10–40 cm en m³/m³
-// (FLDAS) y la capa real será kg/m² en 0–10 cm (GLDAS). Multiplicar por 100 solo da números del
-// mismo orden que los reales (≈ 10–40 kg/m²) para que las pruebas usen valores realistas.
-const sueloAproximado = (v, i, inicio) => v * 100;
+// Las muestras de suelo (FLDAS, 10–40 cm) ya vienen en m³/m³, la misma unidad que la capa real (GLDAS, 0–10 cm).
 const mmMesAmmDia = (v, i, inicio) => v / diasDelMes(inicio, i);
 
 const MAPEO = {
   mor_temp:     { capa: "temp",   unidad: "°C",     adaptar: mismo },
   mor_lluvia:   { capa: "lluvia", unidad: "mm/día", adaptar: mmMesAmmDia },
   sahel_lluvia: { capa: "lluvia", unidad: "mm/día", adaptar: mismo },
-  mor_suelo:    { capa: "suelo",  unidad: "kg/m²",  adaptar: sueloAproximado },
-  sahel_suelo:  { capa: "suelo",  unidad: "kg/m²",  adaptar: sueloAproximado },
-  nmx_suelo:    { capa: "suelo",  unidad: "kg/m²",  adaptar: sueloAproximado },
+  mor_suelo:    { capa: "suelo",  unidad: "m³/m³",  adaptar: mismo },
+  sahel_suelo:  { capa: "suelo",  unidad: "m³/m³",  adaptar: mismo },
+  nmx_suelo:    { capa: "suelo",  unidad: "m³/m³",  adaptar: mismo },
   // Sin capa propia: se usan con su id para probar la configuración genérica.
   mor_tsuelo:   { capa: "mor_tsuelo", adaptar: mismo },
   mor_et:       { capa: "mor_et",     adaptar: mismo },

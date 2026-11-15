@@ -34,7 +34,7 @@ test.describe("capas registradas", () => {
   }
 
   test("la lluvia pasa de mm/día a mm al año: 0.1 → 36.525", () => cerca(Tarjeta.capa("lluvia").convertir(0.1), 36.525));
-  test("el suelo queda igual: 25 kg/m² → 25 %", () => assert.equal(Tarjeta.capa("suelo").convertir(25), 25));
+  test("el suelo pasa de m³/m³ a %: 0.25 → 25", () => cerca(Tarjeta.capa("suelo").convertir(0.25), 25));
   test("la temperatura queda igual en °C", () => assert.equal(Tarjeta.capa("temp").convertir(21.4), 21.4));
   test("el verdor queda igual y usa 2 decimales", () => {
     const c = Tarjeta.capa("verdor");
@@ -161,8 +161,8 @@ test.describe("ayudante de pruebas", () => {
     const original = ayudante.SERIES.find((s) => s.id === "mor_lluvia").v[0];
     cerca(c.serie.valores[0], original / 31);
   });
-  test("el suelo de muestra queda en valores del orden de los reales (aproximación de prueba)", () => {
+  test("el suelo de muestra viene en m³/m³, como la capa real (fracción entre 0 y 1)", () => {
     const c = ayudante.caso("nmx_suelo");
-    assert.ok(c.resumen.antes > 1 && c.resumen.antes < 100);
+    assert.ok(c.resumen.antes > 0 && c.resumen.antes < 1);
   });
 });

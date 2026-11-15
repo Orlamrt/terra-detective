@@ -212,8 +212,8 @@
 
   registrarCapa({
     id: "suelo", variable: "Agua en el suelo", icono: "brote",
-    // kg/m² en la capa de 0–10 cm: 1 kg/m² = 1 mm de agua en 100 mm de tierra = 1 %.
-    convertir: v => v,
+    // m³/m³ (fracción de volumen, ver docs/CONTRATO_DATOS.md) → %: 0.25 m³/m³ = 25 % de agua en el suelo.
+    convertir: v => v * 100,
     unidadCorta: "%", unidadLarga: "% de agua en el suelo", decimales: 1,
     cambioComo: "puntos", // ya se muestra en %: el cambio va en puntos ("3 puntos menos"), no relativo
     subirEsCalor: false,
