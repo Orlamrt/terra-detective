@@ -384,7 +384,8 @@
   const sinAnalisis = r => { const { analisis, ...x } = r; return x; };
   // Hacia afuera (Detective, eventos) van cifras redondeadas: 4 significativas; pendiente e IC con 3; p con 2.
   const redondo = (x, d = 4) => (x == null || !isFinite(x)) ? null : +x.toPrecision(d);
-  const publico = r => r && { ...sinAnalisis(r), antes: redondo(r.antes), hoy: redondo(r.hoy), pendiente_decada: redondo(r.pendiente_decada, 3),
+  // antes/hoy con 6 cifras: al redondearlos otra vez para mostrarlos deben coincidir con la tarjeta (18.4537 → 18.5, no 18.45 → 18.4)
+  const publico = r => r && { ...sinAnalisis(r), antes: redondo(r.antes, 6), hoy: redondo(r.hoy, 6), pendiente_decada: redondo(r.pendiente_decada, 3),
     ic95: r.ic95.map(x => redondo(x, 3)), p: redondo(r.p, 2) };
 
   function volverAlGlobo() {
