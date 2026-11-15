@@ -27,7 +27,11 @@ def construir_globo():
 
 
 if __name__ == "__main__":
-    construir_globo()
+    # El globo ya no se arma desde la plantilla: web/index.html carga src/globo.js, src/stats.js y src/land-110m.json.
+    # Usa `python web/construir.py --plantilla` solo si quieres regenerar la versión antigua de un solo archivo.
+    import sys
+    if "--plantilla" in sys.argv:
+        construir_globo()
     for p in (W / "prototipos").glob("*.html"):
         p.write_text(documento(p.read_text(encoding="utf-8")), encoding="utf-8")
-    print("listo:", ", ".join(str(p.relative_to(W)) for p in [W / "index.html", *sorted((W / "prototipos").glob("*.html"))]))
+    print("listo:", ", ".join(str(p.relative_to(W)) for p in sorted((W / "prototipos").glob("*.html"))))
