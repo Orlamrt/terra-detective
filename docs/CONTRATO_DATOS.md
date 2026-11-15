@@ -47,6 +47,8 @@ El campo `unidad` de cada capa y los valores de `data/series/` vienen **siempre*
 
 `pendiente_decada` está en la misma `unidad` por década. Si una capa cambia de unidad, se actualiza esta tabla en el mismo PR.
 
+`data/capas/index.json` lista las capas disponibles (lo regenera `pipeline/exportar.py`), en orden de preferencia (la primera es la que abre el globo), p. ej. `["temp", "lluvia", "suelo"]`.
+
 ## 2. Series por celda · `data/series/<capa>/<ti>_<tj>.json`
 
 Teselas de 10°×10° para que la web descargue solo lo que necesita al hacer clic.
