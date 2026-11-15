@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>Terra Mundo</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -325,7 +326,7 @@ function giro() { if (girando && tPlano === 0 && !arr) { rot[0] += .12; dibujar(
 
 /* ---------- capas y tarjeta ---------- */
 function pintarCapas() {
-  $("capas").innerHTML = Object.entries(CAPAS).map(([k, c]) => `<button class="capa" type="button" data-c="${k}" aria-pressed="${k === capa}"><span aria-hidden="true">${c.ico}</span>${c.nombre}${c.pronto ? " <small>próximamente</small>" : ""}</button>`).join("");
+  $("capas").innerHTML = Object.entries(CAPAS).map(([k, c]) => `<button class="capa" type="button" data-c="${k}" aria-pressed="${k === capa}">${c.nombre}${c.pronto ? " <small>próximamente</small>" : ""}</button>`).join("");
   const C = CAPAS[capa]; $("leyT").textContent = C.titulo + " · patrón ilustrativo"; $("leyL").textContent = C.L; $("leyR").textContent = C.R;
   $("barra").style.background = `linear-gradient(90deg,${C.pal.join(",")})`; $("capaTag").textContent = C.nombre;
 }
@@ -342,8 +343,6 @@ function narrar() {
   if (L && L.series[capa]) burbuja("det", `Fuimos a <b>${esc(L.nombre)}</b>. La tarjeta muestra la ${C.titulo.toLowerCase()} con datos reales de la NASA. Prueba otra capa arriba del mapa.`);
   else burbuja("det", `Elegiste ${L ? esc(L.nombre) : "este lugar"}. En la versión final calcularé aquí la tendencia de ${C.titulo.toLowerCase()} y te diré si el cambio es seguro.`);
 }
-$("ask").addEventListener("submit", e => { e.preventDefault(); const q = $("q").value.trim(); if (!q) return; $("q").value = "";
-  burbuja("yo", esc(q)); burbuja("det", "En la versión final, el Detective (con IA) responderá aquí, explicará el patrón del mapa y moverá el globo al lugar del que hablas."); });
 
 burbuja("det", "Hola. El planeta está pintado según cuánto cambia la variable elegida: <b>rojo sube, azul baja</b> (en lluvia y suelo, café = más seco). Toca cualquier lugar para investigarlo.");
 colores(); pintarCapas(); mostrarTarjeta();
@@ -352,3 +351,4 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => { 
 new MutationObserver(() => { colores(); dibujar(); }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 requestAnimationFrame(giro);
 </script>
+<script src="src/detective.js"></script>
