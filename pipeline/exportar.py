@@ -11,9 +11,12 @@ import json
 import math
 import pathlib
 
+import sys
+
 import numpy as np
 
-from tendencias import analizar
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from tendencias import analizar  # noqa: E402
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
 SALIDA = RAIZ / "data"
@@ -82,4 +85,4 @@ if __name__ == "__main__":
         import xarray as xr
         da = xr.open_dataarray(RAIZ / "data" / "crudos" / f"{a.capa}_2deg.nc")
         exportar(a.capa, da.values, da.lat.values, da.lon.values, da.attrs["inicio"],
-                 {"titulo": a.capa, "unidad": da.attrs["unidad"], "fuente": da.attrs["fuente"]})
+                 {"titulo": da.attrs.get("titulo", a.capa), "unidad": da.attrs["unidad"], "fuente": da.attrs["fuente"]})
