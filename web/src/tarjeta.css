@@ -1,0 +1,194 @@
+/*
+ * Terra Detective · Tarjeta · estilos de la tarjeta, la comparación y la animación.
+ *
+ * - Todas las clases llevan el prefijo "tj-" para no chocar con las de la página (.tc, .pista, .btn…).
+ * - Los colores salen de las variables de la página (--warm, --cool, --muted, --ink, --line,
+ *   --surface, --sunk, --accent, --mark), siempre con un valor de respaldo: el componente se ve
+ *   bien aunque la página no las defina, y sigue el tema oscuro si la página lo cambia.
+ * - La información nunca depende solo del color: el veredicto lleva flecha y texto, y las
+ *   monedas encendidas van rellenas y las apagadas solo con borde.
+ */
+
+.tj-tarjeta, .tj-comparacion, .tj-anim {
+  --tj-calor: var(--warm, #c2341f);
+  --tj-agua: var(--cool, #2d6ab3);
+  --tj-tenue: var(--muted, #5b6b73);
+  --tj-tinta: var(--ink, #14222b);
+  --tj-linea: var(--line, #d3dce0);
+  --tj-fondo: var(--surface, #ffffff);
+  --tj-hundido: var(--sunk, #f3f6f7);
+  --tj-acento: var(--accent, #0e6e6b);
+  --tj-acento-tinta: var(--accent-ink, #ffffff);
+  --tj-marca: var(--mark, #d9a21b);
+  --tj-titulos: var(--f-display, inherit);
+  --tj-mono: var(--f-mono, ui-monospace, Consolas, monospace);
+  color: var(--tj-tinta);
+  box-sizing: border-box;
+}
+.tj-tarjeta *, .tj-comparacion *, .tj-anim * { box-sizing: border-box; }
+
+/* ---------- tarjeta ---------- */
+
+.tj-tarjeta {
+  border: 1px solid var(--tj-linea);
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--tj-fondo);
+}
+.tj-top {
+  padding: 16px 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--tj-hundido);
+}
+.tj-top.tj-calor { background: var(--tj-hundido); background: color-mix(in srgb, var(--tj-calor) 16%, var(--tj-fondo)); }
+.tj-top.tj-agua { background: var(--tj-hundido); background: color-mix(in srgb, var(--tj-agua) 16%, var(--tj-fondo)); }
+
+.tj-lugar { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.tj-lugar b { font-family: var(--tj-titulos); font-size: 1.15rem; display: block; line-height: 1.15; overflow-wrap: anywhere; }
+.tj-lugar span { font-size: .85rem; color: var(--tj-tenue); }
+.tj-icono-caja { flex-shrink: 0; }
+.tj-icono-caja.tj-neutro { color: var(--tj-tenue); }
+.tj-icono-caja.tj-calor { color: var(--tj-calor); }
+.tj-icono-caja.tj-agua { color: var(--tj-agua); }
+.tj-icono { width: 40px; height: 40px; display: block; }
+
+.tj-num { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 6px; }
+.tj-num small { display: block; font-size: .8rem; color: var(--tj-tenue); }
+.tj-num b {
+  font-family: var(--tj-titulos);
+  font-weight: 700;
+  font-size: clamp(1.7rem, 4vw, 2.4rem);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.tj-num b span { font-size: .45em; font-weight: 500; }
+.tj-flecha { font-size: 1.4rem; color: var(--tj-tenue); padding-bottom: 4px; }
+
+.tj-veredicto { margin: 0; font-family: var(--tj-titulos); font-weight: 700; font-size: 1.1rem; color: var(--tj-tenue); }
+.tj-top.tj-calor .tj-veredicto { color: var(--tj-calor); }
+.tj-top.tj-agua .tj-veredicto { color: var(--tj-agua); }
+.tj-delta { font-size: .8em; font-weight: 500; color: var(--tj-tenue); }
+
+.tj-cuerpo { padding: 14px 18px 16px; display: flex; flex-direction: column; gap: 12px; font-size: .95rem; }
+.tj-cuerpo h4 { margin: 0 0 5px; font-size: .72rem; letter-spacing: .07em; text-transform: uppercase; color: var(--tj-tenue); font-weight: 600; }
+.tj-cuerpo p { margin: 0; }
+.tj-cuerpo section { min-width: 0; }
+
+.tj-monedas { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px; }
+.tj-moneda {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--tj-linea);
+  background: transparent;
+}
+.tj-moneda.tj-on { background: var(--tj-marca); border-color: color-mix(in srgb, var(--tj-marca) 70%, var(--tj-tinta)); }
+
+.tj-desde { margin: 0; background: var(--tj-hundido); border-radius: 10px; padding: 9px 12px; font-size: .92rem; }
+.tj-aviso {
+  margin: 0;
+  border: 1px dashed var(--tj-marca);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: .88rem;
+  font-weight: 600;
+}
+.tj-vacia .tj-veredicto { color: var(--tj-tenue); }
+
+/* ---------- comparación ---------- */
+
+.tj-comparacion { display: flex; flex-direction: column; gap: 14px; }
+.tj-resumen {
+  margin: 0;
+  font-family: var(--tj-titulos);
+  font-weight: 700;
+  font-size: clamp(1.3rem, 3.2vw, 2rem);
+  text-wrap: balance;
+}
+.tj-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px; }
+
+/* ---------- animación ---------- */
+
+.tj-anim { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tj-anim-lienzo { padding: 8px 4px 0; }
+.tj-grafica { width: 100%; height: auto; display: block; }
+.tj-grafica text { font-family: var(--tj-mono); font-size: 11px; }
+.tj-grafica .tj-eje { fill: var(--tj-tenue); }
+
+.tj-anim-pasos { display: flex; gap: 6px; padding: 10px 4px 4px; flex-wrap: wrap; }
+.tj-anim-paso {
+  font: inherit;
+  font-size: .78rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  background: transparent;
+  border: 1px solid var(--tj-linea);
+  border-radius: 999px;
+  padding: 4px 10px 4px 4px;
+  color: var(--tj-tenue);
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.tj-anim-paso b {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--tj-hundido);
+  font-family: var(--tj-mono);
+  font-size: .7rem;
+  color: var(--tj-tinta);
+}
+.tj-anim-paso:hover { border-color: var(--tj-acento); color: var(--tj-tinta); }
+.tj-anim-paso[data-estado="hecho"] b { background: var(--tj-acento); color: var(--tj-acento-tinta); }
+/* el paso actual se marca con borde, texto más oscuro y negrita (no solo con color) */
+.tj-anim-paso[aria-current="step"] { border-color: var(--tj-acento); border-width: 2px; color: var(--tj-tinta); font-weight: 600; }
+
+.tj-anim-narra { padding: 4px 4px 8px; display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.tj-anim-textos { flex: 1 1 260px; min-height: 72px; }
+.tj-anim-titulo { margin: 0 0 2px; font-family: var(--tj-titulos); font-weight: 700; font-size: 1rem; }
+.tj-anim-texto { margin: 0; max-width: 68ch; }
+.tj-anim-play {
+  font: inherit;
+  font-weight: 600;
+  min-height: 40px;
+  border: 1px solid var(--tj-linea);
+  border-radius: 8px;
+  padding: 7px 14px;
+  background: var(--tj-fondo);
+  color: var(--tj-tinta);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.tj-anim-play:hover { border-color: var(--tj-acento); }
+
+.tj-anim-paso:focus-visible, .tj-anim-play:focus-visible {
+  outline: 2px solid var(--tj-acento);
+  outline-offset: 2px;
+}
+
+/* pantallas táctiles: botones más fáciles de tocar */
+@media (pointer: coarse) {
+  .tj-anim-paso { min-height: 44px; padding-right: 12px; }
+  .tj-anim-play { min-height: 44px; }
+}
+
+/* celular */
+@media (max-width: 480px) {
+  .tj-top, .tj-cuerpo { padding-left: 14px; padding-right: 14px; }
+  .tj-icono { width: 32px; height: 32px; }
+  .tj-anim-play { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tj-anim-paso { transition: none; }
+}
