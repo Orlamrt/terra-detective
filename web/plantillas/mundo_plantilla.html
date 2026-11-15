@@ -221,6 +221,7 @@ function dibujar() {
     for (const c of REAL[capa].lista) {
       if (tPlano < .5 && d3.geoDistance([c.lon, c.lat], centro) > Math.PI / 2 - .03) continue;
       const pts = c.q.map(q => proj(q)); if (pts.some(p => !p || !isFinite(p[0]))) continue;
+      const xs = pts.map(p => p[0]); if (Math.max(...xs) - Math.min(...xs) > W / 4) continue; // celda partida por la costura del mapa plano
       if (pts.every(p => p[0] < 0) || pts.every(p => p[0] > W) || pts.every(p => p[1] < 0) || pts.every(p => p[1] > H)) continue;
       ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let k = 1; k < 4; k++) ctx.lineTo(pts[k][0], pts[k][1]); ctx.closePath();
       ctx.fillStyle = esc_(c.z); ctx.globalAlpha = .9; ctx.fill();
