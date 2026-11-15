@@ -340,11 +340,205 @@
     ];
   }
 
-  /* ---------- API ---------- */
+  /* ---------- capa delgada de DOM y controlador ---------- */
 
-  // La capa de DOM y el controlador (Tarjeta.animacion) se agregan en el siguiente paso.
-  function animacion() {
-    throw new Error("Tarjeta.animacion: todavía no implementada (solo está la lógica pura).");
+  // Contador para ids de recorte únicos (no es global: vive dentro de este módulo).
+  let siguienteId = 1;
+
+  /** Preferencia del sistema "reducir movimiento"; si no se puede leer, false. */
+  function prefiereMenosMovimiento() {
+    try { return !!(raiz.matchMedia && raiz.matchMedia("(prefers-reduced-motion: reduce)").matches); } catch (e) { return false; }
+  }
+
+  /** Crea el evento `tarjeta:paso`; si no hay CustomEvent (navegadores muy viejos), un objeto equivalente. */
+  function eventoPaso(paso) {
+    const C = raiz.CustomEvent;
+    if (typeof C === "function") return new C("tarjeta:paso", { detail: { paso }, bubbles: true });
+    return { type: "tarjeta:paso", detail: { paso } };
+  }
+
+  const TEXTO_BOTON = { inicio: "▶ Ver cómo lo descubrió", pausa: "⏸ Pausa", continuar: "▶ Continuar", repetir: "⟲ Repetir" };
+
+  function plantilla() {
+    const pasos = PASOS.map((p, i) => `<button type="button" class="tj-anim-paso" data-tj-accion="paso" data-tj-paso="${i}"><b aria-hidden="true">${i + 1}</b>${esc(p.t)}</button>`).join("");
+    return `<div class="tj-anim">`
+      + `<div class="tj-anim-lienzo" data-tj="lienzo"></div>`
+      + `<div class="tj-anim-pasos" role="group" aria-label="Pasos de la prueba">${pasos}</div>`
+      + `<div class="tj-anim-narra"><div class="tj-anim-textos" aria-live="polite"><p class="tj-anim-titulo" data-tj="titulo"></p><p class="tj-anim-texto" data-tj="texto"></p></div>`
+      + `<button type="button" class="tj-anim-play" data-tj-accion="play" data-tj="play">${TEXTO_BOTON.inicio}</button></div>`
+      + `</div>`;
+  }
+
+  /**
+   * Animación de 5 pasos dentro de `contenedor`. Cada llamada crea una instancia independiente,
+   * con su propio estado: puede haber varias en la misma página.
+   *
+   * Al crearse muestra la gráfica completa (último paso). `reproducir()` la anima desde el inicio.
+   * Al terminar cada paso, el contenedor emite `tarjeta:paso` con `{ paso }` en `detail`.
+   *
+   * @param {Element} contenedor elemento donde se dibuja (se reemplaza su contenido)
+   * @param {{valores:number[], inicio:string}|Array<{valores:number[], inicio:string}>} serie una serie, o hasta 2 para comparar
+   * @param {object} [opciones]
+   * @param {string} [opciones.capa] "temp" | "lluvia" | "suelo" | "verdor" | otra (configuración genérica)
+   * @param {string} [opciones.unidad] unidad original (se usa si la capa no está registrada)
+   * @param {string|string[]} [opciones.lugar] nombre del lugar, o uno por serie
+   * @param {string[]} [opciones.textos] texto de cada paso (reemplaza los de por defecto; los vacíos se ignoran)
+   * @param {object|object[]} [opciones.analisis] resultado de Stats.analizar de cada serie, si ya se tiene
+   * @param {object} [opciones.stats] motor estadístico (por defecto window.Stats)
+   * @param {function} [opciones.programar] por defecto requestAnimationFrame
+   * @param {function} [opciones.cancelar] por defecto cancelAnimationFrame
+   * @param {function} [opciones.ahora] por defecto performance.now
+   * @param {boolean} [opciones.reducirMovimiento] por defecto lee prefers-reduced-motion
+   * @param {string} [opciones.id] prefijo para ids internos (por defecto uno único)
+   * @returns {{reproducir:function():void, pausar:function():void, irAPaso:function(number):void,
+   *            estado:function():{paso:number, corriendo:boolean, terminado:boolean}, destruir:function():void}}
+   * @example
+   * const anim = Tarjeta.animacion(document.querySelector("#prueba"), { valores, inicio: "2000-01" },
+   *   { capa: "temp", lugar: "Morelos" });
+   * anim.reproducir();
+   * // al cambiar de lugar:
+   * anim.destruir();
+   */
+  function animacion(contenedor, serie, opciones = {}) {
+    if (!contenedor || typeof contenedor.querySelector !== "function") throw new Error("Tarjeta.animacion: falta un contenedor (un elemento del DOM)");
+    const op = opciones || {};
+    const lista = (Array.isArray(serie) ? serie : [serie]).filter((s) => s && Array.isArray(s.valores)).slice(0, MAX_SERIES);
+    if (!lista.length) throw new Error("Tarjeta.animacion: falta la serie ({ valores, inicio })");
+    const stats = op.stats || raiz.Stats;
+    if (!stats || typeof stats.veredicto !== "function") throw new Error("Tarjeta.animacion: necesita stats.js (window.Stats) u opciones.stats");
+    const dados = Array.isArray(op.analisis) ? op.analisis : op.analisis ? [op.analisis] : [];
+    const analisis = lista.map((s, k) => dados[k] || stats.analizar(s.valores, s.inicio));
+    const veredictos = analisis.map((r) => (r && r.pts && r.pts.length ? stats.veredicto(r) : { clave: "no" }));
+
+    const programar = op.programar || ((f) => raiz.requestAnimationFrame(f));
+    const cancelar = op.cancelar || ((h) => raiz.cancelAnimationFrame(h));
+    const ahora = op.ahora || (() => raiz.performance.now());
+    const reducir = typeof op.reducirMovimiento === "boolean" ? op.reducirMovimiento : prefiereMenosMovimiento();
+
+    const cfg = Tarjeta.capa(op.capa, op.unidad);
+    const lugares = (Array.isArray(op.lugar) ? op.lugar : [op.lugar]).map((l) => (typeof l === "string" ? l : ""));
+    const vistas = prepararVista(lista, analisis, cfg, lugares);
+    const comp = vistas.length > 1;
+    const dominios = { mens: dominio(vistas, "mens"), anual: dominio(vistas, "anual") };
+    const prefijo = typeof op.id === "string" && op.id ? op.id : `tj-anim-${siguienteId++}`;
+    const variable = cfg.variable.toLowerCase();
+    const medidas = {
+      idClip: `${prefijo}-area`,
+      etiquetaEje: comp ? "% respecto a su promedio" : cfg.unidadLarga,
+      unidadCorta: comp ? "" : cfg.unidadCorta,
+      decimales: cfg.decimales,
+      descripcion: comp ? `Gráfica de ${variable}: ${lugares.filter(Boolean).join(" y ") || "dos lugares"}`
+        : `Gráfica de ${variable}${lugares[0] ? ` en ${lugares[0]}` : ""} y su tendencia`,
+    };
+    const textos = textosPasos({ vistas, analisis, veredictos, cfg, lugares });
+    if (Array.isArray(op.textos)) op.textos.slice(0, PASOS.length).forEach((t, i) => { if (typeof t === "string" && t.trim()) textos[i] = t; });
+
+    const total = duracionTotal();
+    let tAcum = total, t0 = 0, corriendo = false, cuadro = null, pasoActual = -1, ultimoEmitido = -1, destruido = false;
+
+    contenedor.innerHTML = plantilla();
+    const el = {
+      lienzo: contenedor.querySelector('[data-tj="lienzo"]'),
+      titulo: contenedor.querySelector('[data-tj="titulo"]'),
+      texto: contenedor.querySelector('[data-tj="texto"]'),
+      play: contenedor.querySelector('[data-tj="play"]'),
+      pasos: Array.from(contenedor.querySelectorAll("[data-tj-paso]")),
+    };
+
+    const boton = (t) => { el.play.textContent = t; };
+    boton(TEXTO_BOTON.inicio);
+
+    /** Paso más alto que ya terminó de dibujarse en el instante `ms` (−1 si ninguno). */
+    function pasoCompleto(ms) {
+      let k = -1;
+      for (let i = 0; i < PASOS.length; i++) if (ms >= inicioDePaso(i) + PASOS[i].dur) k = i;
+      return k;
+    }
+
+    function mostrarPaso(i) {
+      el.titulo.textContent = `Paso ${i + 1} de ${PASOS.length} · ${PASOS[i].t}`;
+      el.texto.textContent = textos[i] || "";
+      el.pasos.forEach((b, k) => {
+        const hecho = k < i || (k === i && i === PASOS.length - 1);
+        b.setAttribute("data-estado", hecho ? "hecho" : k === i ? "activo" : "");
+        if (k === i) b.setAttribute("aria-current", "step"); else b.removeAttribute("aria-current");
+      });
+    }
+
+    function pintar(ms, emitir = true) {
+      const st = estadoEn(ms);
+      el.lienzo.innerHTML = construirSVG(st, vistas, dominios, medidas);
+      if (st.i !== pasoActual) { pasoActual = st.i; mostrarPaso(st.i); }
+      const completo = pasoCompleto(ms);
+      if (!emitir || completo < ultimoEmitido) { ultimoEmitido = completo; return; }
+      while (ultimoEmitido < completo) {
+        ultimoEmitido++;
+        if (typeof contenedor.dispatchEvent === "function") contenedor.dispatchEvent(eventoPaso(ultimoEmitido));
+      }
+    }
+
+    function tick() {
+      cuadro = null;
+      if (destruido || !corriendo) return;
+      const ms = tAcum + (ahora() - t0);
+      if (ms >= total) {
+        corriendo = false; tAcum = total; pintar(total); boton(TEXTO_BOTON.repetir);
+        return;
+      }
+      pintar(ms);
+      cuadro = programar(tick);
+    }
+
+    function reproducir() {
+      if (destruido || corriendo) return;
+      if (tAcum >= total) { tAcum = 0; ultimoEmitido = -1; }
+      if (reducir) { tAcum = total; pintar(total); boton(TEXTO_BOTON.repetir); return; }
+      corriendo = true; t0 = ahora(); boton(TEXTO_BOTON.pausa);
+      pintar(tAcum);
+      cuadro = programar(tick);
+    }
+
+    function pausar() {
+      if (destruido || !corriendo) return;
+      if (cuadro !== null) { cancelar(cuadro); cuadro = null; }
+      tAcum = Math.min(total, tAcum + (ahora() - t0));
+      corriendo = false; boton(TEXTO_BOTON.continuar);
+    }
+
+    function irAPaso(i) {
+      if (destruido) return;
+      const n = Math.max(0, Math.min(PASOS.length - 1, Math.round(Number(i)) || 0));
+      pausar();
+      tAcum = n === PASOS.length - 1 ? total : inicioDePaso(n) + PASOS[n].dur;
+      pintar(tAcum);
+      boton(n === PASOS.length - 1 ? TEXTO_BOTON.repetir : TEXTO_BOTON.continuar);
+    }
+
+    function estado() {
+      const ms = corriendo ? Math.min(total, tAcum + (ahora() - t0)) : tAcum;
+      return { paso: estadoEn(ms).i, corriendo, terminado: ms >= total };
+    }
+
+    function alHacerClic(e) {
+      const b = e && e.target && typeof e.target.closest === "function" ? e.target.closest("[data-tj-accion]") : null;
+      if (!b || (typeof contenedor.contains === "function" && !contenedor.contains(b))) return;
+      const accion = b.getAttribute("data-tj-accion");
+      if (accion === "play") { if (corriendo) pausar(); else reproducir(); }
+      else if (accion === "paso") irAPaso(Number(b.getAttribute("data-tj-paso")));
+    }
+
+    function destruir() {
+      if (destruido) return;
+      if (cuadro !== null) { cancelar(cuadro); cuadro = null; }
+      corriendo = false; destruido = true;
+      if (typeof contenedor.removeEventListener === "function") contenedor.removeEventListener("click", alHacerClic);
+      contenedor.innerHTML = "";
+    }
+
+    if (typeof contenedor.addEventListener === "function") contenedor.addEventListener("click", alHacerClic);
+    pintar(total, false); // vista inicial: la gráfica completa, sin emitir eventos
+
+    return { reproducir, pausar, irAPaso, estado, destruir };
   }
 
   animacion.puro = Object.freeze({

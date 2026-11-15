@@ -275,7 +275,3 @@ test.describe("textosPasos", () => {
     assert.equal(t.length, 5);
   });
 });
-
-test("Tarjeta.animacion todavía no tiene la capa de DOM y lo dice claro", () => {
-  assert.throws(() => Tarjeta.animacion(), /todavía no implementada/);
-});
