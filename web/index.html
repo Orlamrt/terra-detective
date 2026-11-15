@@ -1,3 +1,11 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
 <title>Terra Mundo</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -71,7 +79,7 @@ footer{font-size:.75rem;color:var(--muted)}
   <header>
     <svg width="32" height="32" viewBox="0 0 34 34" aria-hidden="true"><circle cx="15" cy="15" r="11" fill="none" stroke="var(--accent)" stroke-width="3"/><path d="M5 13 Q15 8 25 13 M6 19 Q15 24 24 19 M15 4 Q9 15 15 26" fill="none" stroke="var(--accent)" stroke-width="1.6"/><path d="M23 23 L31 31" stroke="var(--warm)" stroke-width="4" stroke-linecap="round"/></svg>
     <div><h1>Terra Mundo</h1><small>Detective de tendencias · NASA Space Apps 2026</small></div>
-    <p class="aviso"><b>Vista previa.</b> Los colores del mapa son ilustrativos; se reemplazarán por tendencias calculadas con datos de la NASA. Las tarjetas de Morelos, Sahel y norte de México ya usan datos reales.</p>
+    <p class="aviso" id="aviso"><b>Vista previa.</b> Los colores del mapa son ilustrativos; se reemplazarán por tendencias calculadas con datos de la NASA. Las tarjetas de Morelos, Sahel y norte de México ya usan datos reales.</p>
   </header>
   <div class="grid">
     <section class="mapa" id="mapa" aria-label="Planeta interactivo">
@@ -208,6 +216,27 @@ for (let lat = -90; lat < 90; lat += PASO) for (let lon = -180; lon < 180; lon +
 const land = topojson.feature(LAND_TOPO, LAND_TOPO.objects.land);
 const grat = d3.geoGraticule10();
 const escala = c => d3.scaleLinear().domain([-1, -.5, 0, .5, 1]).range(CAPAS[c].pal).clamp(true);
+/* ---------- capas reales (data/capas/<capa>.json, ver docs/CONTRATO_DATOS.md) ---------- */
+const REAL = {};          // capa -> {doc, val[], sig[], celdas[]}
+const NORMA = { temp: { tope: .5, rel: false }, lluvia: { tope: 15, rel: true }, suelo: { tope: 10, rel: true } };
+async function cargarCapa(c) {
+  if (REAL[c] !== undefined || !NORMA[c]) return REAL[c];
+  REAL[c] = null;
+  try {
+    const r = await fetch(`data/capas/${c}.json`); if (!r.ok) throw new Error(r.status);
+    const doc = await r.json(), g = doc.rejilla, N = NORMA[c], lista = [];
+    for (let i = 0; i < g.nlat; i++) for (let j = 0; j < g.nlon; j++) {
+      const k = i * g.nlon + j, p = doc.pendiente_decada[k]; if (p == null) continue;
+      const m = doc.media[k], v = N.rel ? (m ? 100 * p / Math.abs(m) : 0) : p;
+      const lat0 = g.lat0 + i * g.res, lon0 = g.lon0 + j * g.res;
+      lista.push({ i, j, lat: lat0 + g.res / 2, lon: lon0 + g.res / 2, z: v / N.tope, s: doc.significancia[k] || 0,
+        q: [[lon0, lat0], [lon0 + g.res, lat0], [lon0 + g.res, lat0 + g.res], [lon0, lat0 + g.res]] });
+    }
+    REAL[c] = { doc, lista };
+  } catch (e) { REAL[c] = null; }
+  return REAL[c];
+}
+const esReal = () => !!REAL[capa];
 
 /* ---------- casos con datos reales ---------- */
 const LUGARES = {
@@ -273,11 +302,23 @@ function dibujar() {
   ctx.beginPath(); path({ type: "Sphere" }); ctx.fillStyle = COL.ocean; ctx.fill();
   const C = CAPAS[capa], esc_ = escala(capa);
   ctx.save();
-  if (C.tierra) { ctx.beginPath(); path(land); ctx.clip(); }
+  if (C.tierra && !esReal()) { ctx.beginPath(); path(land); ctx.clip(); }
+  if (esReal()) {
+    const centro = [-proj.rotate()[0], -proj.rotate()[1]];
+    for (const c of REAL[capa].lista) {
+      if (tPlano < .5 && d3.geoDistance([c.lon, c.lat], centro) > Math.PI / 2 - .03) continue;
+      const pts = c.q.map(q => proj(q)); if (pts.some(p => !p || !isFinite(p[0]))) continue;
+      const xs = pts.map(p => p[0]); if (Math.max(...xs) - Math.min(...xs) > W / 4) continue; // celda partida por la costura del mapa plano
+      if (pts.every(p => p[0] < 0) || pts.every(p => p[0] > W) || pts.every(p => p[1] < 0) || pts.every(p => p[1] > H)) continue;
+      ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let k = 1; k < 4; k++) ctx.lineTo(pts[k][0], pts[k][1]); ctx.closePath();
+      ctx.fillStyle = esc_(c.z); ctx.globalAlpha = .9; ctx.fill();
+    }
+  } else
   for (const c of celdas) { const v = patron(capa, c.lon, c.lat); ctx.beginPath(); path(c.geo); ctx.fillStyle = esc_(v); ctx.globalAlpha = C.tierra ? .95 : .82; ctx.fill(); }
   ctx.globalAlpha = 1;
   ctx.fillStyle = COL.ink;
-  for (const c of celdas) { if (Math.abs(patron(capa, c.lon, c.lat)) < .5) continue; const p = visible(c.lon, c.lat); if (p) { ctx.beginPath(); ctx.arc(p[0], p[1], 1.4, 0, 7); ctx.globalAlpha = .55; ctx.fill(); } }
+  if (esReal()) { for (const c of REAL[capa].lista) { if (c.s < 1 || (c.i + c.j) % 2) continue; const p = visible(c.lon, c.lat); if (p) { ctx.beginPath(); ctx.arc(p[0], p[1], 1.2, 0, 7); ctx.globalAlpha = .45; ctx.fill(); } } }
+  else for (const c of celdas) { if (Math.abs(patron(capa, c.lon, c.lat)) < .5) continue; const p = visible(c.lon, c.lat); if (p) { ctx.beginPath(); ctx.arc(p[0], p[1], 1.4, 0, 7); ctx.globalAlpha = .55; ctx.fill(); } }
   ctx.restore(); ctx.globalAlpha = 1;
   ctx.beginPath(); path(grat); ctx.strokeStyle = COL.grat; ctx.lineWidth = 1; ctx.stroke();
   ctx.beginPath(); path(land); ctx.strokeStyle = COL.line; ctx.lineWidth = .8; ctx.stroke();
@@ -306,11 +347,12 @@ cv.addEventListener("pointermove", e => { if (!arr) return; const dx = e.clientX
 cv.addEventListener("pointerup", e => { const fueClic = arr && !movido; arr = null; if (!fueClic) return;
   const r = cv.getBoundingClientRect(), ll = invertir(e.clientX - r.left, e.clientY - r.top); if (!ll || !isFinite(ll[0])) return; elegir(ll[0], ll[1]); });
 function cercano(lon, lat) { for (const [k, L] of Object.entries(LUGARES)) { const b = L.bbox; if (lon >= b[0] - 1.5 && lon <= b[2] + 1.5 && lat >= b[1] - 1.5 && lat <= b[3] + 1.5) return k; } return null; }
-function elegir(lon, lat, clave = cercano(lon, lat)) {
+function elegir(lon, lat, clave = cercano(lon, lat), silencio = false) {
   const L = clave ? LUGARES[clave] : null;
   seleccion = L ? { lon: L.lon, lat: L.lat, bbox: L.bbox, clave } : { lon, lat, clave: null };
   volar(seleccion.lon, seleccion.lat, 1);
-  mostrarTarjeta(); narrar();
+  mostrarTarjeta(); if (!silencio) narrar();
+  dispatchEvent(new CustomEvent("terra:lugar", { detail: { lon: seleccion.lon, lat: seleccion.lat, capa, lugar: seleccion.clave } }));
 }
 function volar(lon, lat, destinoT) {
   const r0 = [...rot], r1 = [-lon, -lat], t0 = tPlano, dur = reduce ? 1 : 1300, ini = performance.now();
@@ -325,12 +367,58 @@ function giro() { if (girando && tPlano === 0 && !arr) { rot[0] += .12; dibujar(
 
 /* ---------- capas y tarjeta ---------- */
 function pintarCapas() {
-  $("capas").innerHTML = Object.entries(CAPAS).map(([k, c]) => `<button class="capa" type="button" data-c="${k}" aria-pressed="${k === capa}"><span aria-hidden="true">${c.ico}</span>${c.nombre}${c.pronto ? " <small>próximamente</small>" : ""}</button>`).join("");
-  const C = CAPAS[capa]; $("leyT").textContent = C.titulo + " · patrón ilustrativo"; $("leyL").textContent = C.L; $("leyR").textContent = C.R;
+  $("capas").innerHTML = Object.entries(CAPAS).map(([k, c]) => `<button class="capa" type="button" data-c="${k}" aria-pressed="${k === capa}">${c.nombre}${c.pronto ? " <small>próximamente</small>" : ""}</button>`).join("");
+  const C = CAPAS[capa], R = REAL[capa], N = NORMA[capa];
+  $("leyT").textContent = R ? `${C.titulo} · cambio por década, ${R.doc.inicio.slice(0, 4)}–2025` : C.titulo + " · patrón ilustrativo";
+  $("leyL").textContent = R ? `${C.L} (−${N.tope}${N.rel ? " %" : " " + R.doc.unidad})` : C.L; $("leyR").textContent = R ? `${C.R} (+${N.tope}${N.rel ? " %" : " " + R.doc.unidad})` : C.R;
+  const reales = Object.keys(REAL).filter(k => REAL[k]).map(k => CAPAS[k].nombre.toLowerCase());
+  $("aviso").innerHTML = reales.length ? `<b>Datos reales de la NASA</b> en ${reales.join(", ")} (2000–2025, celdas de 2°). ${CAPAS.verdor.nombre} sigue siendo ilustrativo.` : $("aviso").innerHTML;
   $("barra").style.background = `linear-gradient(90deg,${C.pal.join(",")})`; $("capaTag").textContent = C.nombre;
 }
-$("capas").addEventListener("click", e => { const b = e.target.closest(".capa"); if (!b) return; capa = b.dataset.c; pintarCapas(); dibujar(); mostrarTarjeta(); });
+async function cambiarCapa(id) { if (!CAPAS[id]) return false; capa = id; pintarCapas(); await cargarCapa(id); pintarCapas(); dibujar(); mostrarTarjeta();
+  dispatchEvent(new CustomEvent("terra:capa", { detail: { capa: id, ilustrativo: !REAL[id] } })); return true; }
+$("capas").addEventListener("click", e => { const b = e.target.closest(".capa"); if (b) cambiarCapa(b.dataset.c); });
+const FMT = { temp: { variable: "Temperatura del aire", f: 1, u: "°", dec: 1, calor: true, sube: "Más calor que antes", baja: "Más fresco que antes" },
+  lluvia: { variable: "Lluvia del año", f: 365.25, u: "mm", dec: 0, sube: "Llueve más que antes", baja: "Llueve menos que antes" },
+  suelo: { variable: "Agua en el suelo", f: 100, u: "%", dec: 1, sube: "El suelo tiene más agua", baja: "El suelo se está secando" } };
+const TESELAS = {};
+async function serieCelda(c, lon, lat) {
+  const R = REAL[c]; if (!R) return null; const g = R.doc.rejilla;
+  const i = Math.floor((lat - g.lat0) / g.res), j = Math.floor((lon - g.lon0) / g.res);
+  const ti = Math.floor((lat + 90) / 10), tj = Math.floor((lon + 180) / 10), clave = `${c}/${ti}_${tj}`;
+  if (!(clave in TESELAS)) { try { const r = await fetch(`data/series/${clave}.json`); TESELAS[clave] = r.ok ? await r.json() : null; } catch { TESELAS[clave] = null; } }
+  const T = TESELAS[clave]; if (!T) return { sinArchivo: true };
+  const v = T.celdas[`${i}_${j}`]; return v ? { v, inicio: T.inicio } : { sinDatos: true };
+}
+function tarjetaSerie(nombre, c, s) {
+  const f = FMT[c], r = Stats.analizar(s.v, s.inicio), v = Stats.veredicto(r), seguro = v.clave === "muy" || v.clave === "si";
+  const a = r.anual.filter(x => x.completo).map(x => ({ y: x.y, v: x.v * f.f })), A = a.slice(0, 10), B = a.slice(-10), mA = prom(A), mB = prom(B);
+  const dir = mB > mA ? "sube" : "baja", tono = !seguro ? "" : (f.calor ? (dir === "sube" ? "hot" : "wet") : (dir === "sube" ? "wet" : "hot"));
+  const col = tono === "hot" ? "var(--warm)" : tono === "wet" ? "var(--cool)" : "var(--muted)";
+  const delta = f.u === "°" ? `${sg1(mB - mA)}°` : `${sg1(100 * (mB - mA) / Math.abs(mA), 0)} %`;
+  const n = Math.max(0, Math.floor(-Math.log2(Math.max(v.p, 1e-300)))), on = Math.min(10, n);
+  const mon = !seguro ? (n <= 1 ? "Como sacar <b>cara</b> al lanzar una moneda: pasa todo el tiempo. <b>No podemos asegurar que cambió.</b>" : `Como sacar <b>${n} caras seguidas</b>: pasa seguido. <b>No podemos asegurar que cambió.</b>`)
+    : n > 10 ? "Como sacar <b>más de 10 caras seguidas</b>: <b>el cambio es real.</b>" : `Como sacar <b>${n} caras seguidas</b>: pasa 1 vez de cada ${2 ** n}. <b>${v.clave === "muy" ? "Es muy probable que sea real." : "Probablemente es real, con menos margen."}</b>`;
+  const per = arr => `${arr[0].y}–${String(arr.at(-1).y).slice(2)}`;
+  return `<article class="tc"><div class="tc-top ${tono}"><div class="tc-lugar"><div><b>${esc(nombre)}</b><span>${f.variable} · ${esc(REAL[c].doc.fuente.split(",")[0])}</span></div></div>
+    <div class="tc-num"><div><small>Antes (${per(A)})</small><b>${f1(mA, f.dec)}<span>${f.u}</span></b></div><div style="color:var(--muted);font-size:1.3rem;padding-bottom:4px">→</div><div><small>Hoy (${per(B)})</small><b>${f1(mB, f.dec)}<span>${f.u}</span></b></div></div>
+    <div class="tc-ver" style="color:${col}">${seguro ? `${dir === "sube" ? "▲" : "▼"} ${f[dir]}` : "≈ Sin cambio claro"} <span style="font-size:.8em;color:var(--muted)">${seguro ? delta : `(${delta}, puede ser suerte)`}</span></div></div>
+    <div class="tc-cuerpo"><div><h4>¿Es seguro?</h4><div class="monedas" aria-hidden="true">${Array.from({ length: 10 }, (_, i) => `<i class="${i < on ? "on" : ""}"></i>`).join("")}</div><p>${mon}</p></div>
+    <p style="font-size:.82rem;color:var(--muted)">Tendencia: ${f.u === "°" ? `${sg1(r.porDecada, 2)} °C` : `${sg1(100 * r.porDecada / Math.abs(r.meanAll), 1)} %`} por década · celda de 2° (~200 km) · ${s.inicio.slice(0, 4)}–2025</p></div></article>`;
+}
+let pedido = 0;
+async function mostrarTarjetaReal() {
+  const yo = ++pedido, L = seleccion.clave ? LUGARES[seleccion.clave] : null;
+  const nombre = L ? L.nombre : `${f1(Math.abs(seleccion.lat))}° ${seleccion.lat >= 0 ? "N" : "S"}, ${f1(Math.abs(seleccion.lon))}° ${seleccion.lon >= 0 ? "E" : "O"}`;
+  $("tarjeta").innerHTML = `<div class="vacio">Cargando datos de la NASA para este lugar…</div>`;
+  const s = await serieCelda(capa, seleccion.lon, seleccion.lat); if (yo !== pedido) return;
+  if (s && s.v) { $("tarjeta").innerHTML = tarjetaSerie(nombre, capa, s); return; }
+  if (s && s.sinDatos) { $("tarjeta").innerHTML = `<div class="vacio"><b>${esc(nombre)}</b><p>No hay datos de ${CAPAS[capa].titulo.toLowerCase()} aquí (por ejemplo, mar o hielo en una capa de tierra). Prueba otro lugar u otra capa.</p></div>`; return; }
+  const id = L && L.series[capa];
+  $("tarjeta").innerHTML = id ? tarjetaReal(L, id) : tarjetaVacia(seleccion.lon, seleccion.lat, L && L.nombre);
+}
 function mostrarTarjeta() {
+  if (seleccion && esReal()) return mostrarTarjetaReal();
   if (!seleccion) { $("tarjeta").innerHTML = `<div class="vacio"><b style="font-family:var(--f-display);font-size:1.1rem">Elige un lugar del planeta</b><p>Toca cualquier punto del globo, o usa los botones de abajo a la derecha para ir a un caso con datos reales.</p></div>`; return; }
   const L = seleccion.clave ? LUGARES[seleccion.clave] : null, id = L && L.series[capa];
   $("tarjeta").innerHTML = id ? tarjetaReal(L, id) : tarjetaVacia(seleccion.lon, seleccion.lat, L && L.nombre);
@@ -342,13 +430,49 @@ function narrar() {
   if (L && L.series[capa]) burbuja("det", `Fuimos a <b>${esc(L.nombre)}</b>. La tarjeta muestra la ${C.titulo.toLowerCase()} con datos reales de la NASA. Prueba otra capa arriba del mapa.`);
   else burbuja("det", `Elegiste ${L ? esc(L.nombre) : "este lugar"}. En la versión final calcularé aquí la tendencia de ${C.titulo.toLowerCase()} y te diré si el cambio es seguro.`);
 }
-$("ask").addEventListener("submit", e => { e.preventDefault(); const q = $("q").value.trim(); if (!q) return; $("q").value = "";
-  burbuja("yo", esc(q)); burbuja("det", "En la versión final, el Detective (con IA) responderá aquí, explicará el patrón del mapa y moverá el globo al lugar del que hablas."); });
+$("ask").addEventListener("submit", e => { e.preventDefault(); if (window.Detective) return; const q = $("q").value.trim(); if (!q) return; $("q").value = "";
+  burbuja("yo", esc(q)); burbuja("det", "El Detective no está disponible en este momento. Toca un lugar del mapa para ver su tarjeta."); });
 
-burbuja("det", "Hola. El planeta está pintado según cuánto cambia la variable elegida: <b>rojo sube, azul baja</b> (en lluvia y suelo, café = más seco). Toca cualquier lugar para investigarlo.");
 colores(); pintarCapas(); mostrarTarjeta();
+(async () => { await Promise.all(Object.keys(NORMA).map(cargarCapa)); pintarCapas(); dibujar(); })();
 new ResizeObserver(tamanio).observe(cv);
 matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => { colores(); dibujar(); });
 new MutationObserver(() => { colores(); dibujar(); }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 requestAnimationFrame(giro);
+
+/* ---------- window.Terra: funciones del mapa para el Detective (docs/CONTRATO_DATOS.md §4) ---------- */
+const UNIDAD_MUESTRA = { mor_temp: "°C", mor_lluvia: "mm/mes", mor_suelo: "m³/m³", sahel_suelo: "m³/m³", nmx_suelo: "m³/m³", sahel_lluvia: "mm/día" };
+const redondo = (x, d = 4) => (x == null || !isFinite(x)) ? null : +x.toPrecision(d);
+function celdaDe(lon, lat, c = capa) {
+  const R = REAL[c]; if (!R) return null; const g = R.doc.rejilla;
+  return { i: Math.floor((lat - g.lat0) / g.res), j: Math.floor((lon - g.lon0) / g.res) };
+}
+window.Terra = Object.freeze({
+  capas: () => Object.entries(CAPAS).map(([id, c]) => ({ id, titulo: c.titulo, unidad: REAL[id] ? REAL[id].doc.unidad : null, ilustrativo: !REAL[id] })),
+  elegirCapa: id => cambiarCapa(String(id)),
+  async irA(lon, lat) {
+    lon = +lon; lat = +lat; if (!isFinite(lon) || !isFinite(lat)) throw new Error("coordenadas inválidas");
+    girando = false; elegir(lon, lat, cercano(lon, lat), true);
+    await new Promise(r => setTimeout(r, reduce ? 30 : 1350));
+    return { lon: seleccion.lon, lat: seleccion.lat, celda: celdaDe(seleccion.lon, seleccion.lat) };
+  },
+  async resumen(lon, lat, c = capa) {
+    let serie = null, unidad = null, fuente = null;
+    const s = await serieCelda(c, +lon, +lat);
+    if (s && s.v) { serie = s; unidad = REAL[c].doc.unidad; fuente = REAL[c].doc.fuente; }
+    else { const k = cercano(+lon, +lat), id = k && LUGARES[k].series[c];
+      if (!id) return null;
+      serie = { v: POR_ID[id].v, inicio: POR_ID[id].inicio }; unidad = UNIDAD_MUESTRA[id] || null; fuente = POR_ID[id].fuente; }
+    const r = Stats.analizar(serie.v, serie.inicio), v = Stats.veredicto(r);
+    const a = r.anual.filter(x => x.completo), A = a.slice(0, 10), B = a.slice(-10);
+    return { antes: redondo(prom(A)), hoy: redondo(prom(B)), unidad, pendiente_decada: redondo(r.porDecada, 3),
+      ic95: r.icDecada.map(x => redondo(x, 3)), p: redondo(v.p, 2), veredicto: v.clave,
+      caras: Math.max(0, Math.floor(-Math.log2(Math.max(v.p, 1e-300)))), periodo: [A[0].y, B.at(-1).y], fuente, ilustrativo: false };
+  },
+  volverAlGlobo: () => { if (!$("volver").hidden) $("volver").click(); },
+});
 </script>
+<script src="src/detective.js"></script>
+
+</body>
+</html>
