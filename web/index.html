@@ -5,6 +5,7 @@
 <title>Terra Mundo</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="src/tarjeta.css">
 <style>
 /* Layout: el planeta ocupa la pantalla; a la derecha, la tarjeta del lugar elegido y el Detective */
 :root{
@@ -70,6 +71,10 @@ header small{display:block;font-family:var(--f-mono);font-size:.68rem;letter-spa
 form.ask{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line)}
 form.ask input{flex:1;min-width:0;font:inherit;font-size:.9rem;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk);color:var(--ink)}
 footer{font-size:.75rem;color:var(--muted)}
+.prueba{border-top:1px solid var(--line)}
+.prueba>summary{cursor:pointer;padding:10px 16px;font-weight:600;font-size:.88rem;color:var(--accent)}
+.prueba>div{padding:0 12px 12px}
+.chat .btn{margin:2px 4px 2px 0;font-weight:500;font-size:.8rem;text-align:left}
 /* Celular: leyenda compacta para que no tape los botones de lugares */
 @media (max-width:600px){
   .mapa{min-height:480px}
@@ -98,23 +103,31 @@ footer{font-size:.75rem;color:var(--muted)}
       <div class="lugares"><span style="font-size:.75rem;color:var(--muted)">Ir a un caso con datos reales</span><button class="btn" type="button" data-ir="morelos">Morelos</button><button class="btn" type="button" data-ir="sahel">Sahel</button><button class="btn" type="button" data-ir="nmx">Norte de México</button></div>
     </section>
     <aside class="lado">
-      <section class="panel" aria-label="Tarjeta del lugar elegido"><div class="panel-h"><span>Lugar elegido</span><span id="capaTag">—</span></div><div id="tarjeta"></div></section>
+      <section class="panel" aria-label="Tarjeta del lugar elegido"><div class="panel-h"><span>Lugar elegido</span><span id="capaTag">—</span></div><div id="tarjeta"></div><details class="prueba" id="pruebaCaja" hidden><summary>Ver la prueba completa (5 pasos)</summary><div id="prueba"></div></details></section>
       <section class="panel" aria-label="Detective"><div class="panel-h"><span>Detective</span><span>IA en la versión final (Tarea 4)</span></div>
         <div class="chat" id="chat"></div>
         <form class="ask" id="ask"><input id="q" autocomplete="off" placeholder="¿Por qué aquí sube y allá baja?" aria-label="Pregunta al Detective"><button class="btn prim" type="submit">Preguntar</button></form>
       </section>
     </aside>
   </div>
-  <footer>Datos reales en tarjetas: NASA Giovanni (FLDAS, GPM IMERG). Mapa final previsto: MERRA-2 (temperatura), GPM IMERG (lluvia), GLDAS (humedad del suelo), MODIS (verdor), 2000–2025, tendencia y significancia por celda de ~2°.</footer>
+  <footer>Mapa: tendencia y significancia por celda de 2° (2000–2025) con MERRA-2 (temperatura), GPM IMERG (lluvia) y GLDAS-2.1 (humedad del suelo), NASA. Casos de Morelos, Sahel y norte de México: NASA Giovanni (FLDAS, GPM IMERG).</footer>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script src="src/stats.js"></script>
+<!-- Tarea 3: tarjeta y prueba detallada (si aún no están en main, el globo usa su tarjeta de respaldo) -->
+<script src="src/tarjeta_capas.js"></script>
+<script src="src/tarjeta.js"></script>
+<script src="src/animacion.js"></script>
+<!-- Tarea 2: globo y window.Terra -->
 <script src="src/globo.js"></script>
+<!-- Tarea 4: Detective (usa solo window.Terra) -->
+<script src="src/detective.js"></script>
 <script>
-// Chat provisional: lo reemplaza web/src/detective.js (Tarea 4), que solo usa window.Terra.
+// Chat provisional: solo si todavía no está web/src/detective.js (Tarea 4).
 (() => {
+  if (window.Detective) return;
   const chat = document.getElementById("chat"), esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const burbuja = (q, html) => { const d = document.createElement("div"); d.className = "msg " + q; d.innerHTML = html; chat.append(d); chat.scrollTop = chat.scrollHeight; };
   burbuja("det", "Hola. El planeta está pintado según cuánto cambia la variable elegida: <b>rojo sube, azul baja</b> (en lluvia y suelo, café = más seco). Los puntos marcan dónde el cambio es seguro. Toca cualquier lugar para investigarlo.");

@@ -21,7 +21,10 @@
   };
   const IDS_CONOCIDOS = ["temp", "lluvia", "suelo", "verdor", "demo_temp"];
   const tipoDe = id => Object.keys(ESTILO).find(k => id === k || id.endsWith("_" + k)) || "temp";
-  const NIVELES = 33; // colores discretos: permite agrupar celdas por color y pintar rápido
+  const NIVELES = 33;
+  // Conversión para mostrar (docs/CONTRATO_DATOS.md, "Unidades por capa"): los datos vienen en la unidad de origen.
+  const CONVERSION = { "mm/día": [365.25, "mm/año"], "mm/mes": [12, "mm/año"], "m³/m³": [100, "% de agua"] };
+  const mostrar = unidad => { const c = CONVERSION[unidad]; return c ? { f: c[0], u: c[1] } : { f: 1, u: unidad || "" }; }; // colores discretos: permite agrupar celdas por color y pintar rápido
 
   /* ---------- casos con series reales de muestra (NASA Giovanni) ---------- */
   const LUGARES = {
@@ -334,22 +337,26 @@
     const celda = celdaDe(C, lon, lat), clave = lugarCercano(lon, lat), L = clave ? LUGARES[clave] : null;
     let serie = celda ? await serieDeCelda(id, celda) : null, fuente = serie ? "capa" : null, nombre = L ? L.nombre : null;
     if (!serie && L && L.series[C.tipo] && MUESTRAS[L.series[C.tipo]]) { // respaldo: serie real de muestra
-      const m = MUESTRAS[L.series[C.tipo]]; serie = { valores: m.v, inicio: m.inicio, unidad: m.unidad, fuente: m.fuente }; fuente = "muestra";
+      const m = MUESTRAS[L.series[C.tipo]], aDia = m.unidad === "mm/mes" ? 12 / 365.25 : 1; // contrato: lluvia en mm/día
+      serie = { valores: aDia === 1 ? m.v : m.v.map(x => x == null ? x : x * aDia), inicio: m.inicio, unidad: aDia === 1 ? m.unidad : "mm/día", fuente: m.fuente }; fuente = "muestra";
     }
-    const resumen = serie ? resumir(serie, serie.unidad || C.meta.unidad) : null;
+    const ilus = fuente === "muestra" ? false : !!C.meta.ilustrativo;
+    const resumen = serie ? resumir(serie, serie.unidad || C.meta.unidad, nombre || nombreLugar(lon, lat), ilus) : null;
     return { lon, lat, celda: celda && C.meta.pendiente_decada[celda.k] != null ? { i: celda.i, j: celda.j, k: celda.k, lon: celda.lon, lat: celda.lat } : (celda ? { i: celda.i, j: celda.j, k: celda.k, lon: celda.lon, lat: celda.lat, sinDatos: true } : null),
       capa: id, nombre: nombre || nombreLugar(lon, lat), lugar: clave, fuente, serie: serie ? serie.valores : null, inicio: serie ? serie.inicio : null,
       unidad: serie ? (serie.unidad || C.meta.unidad) : C.meta.unidad, fuenteDatos: serie ? (serie.fuente || C.meta.fuente) : C.meta.fuente,
-      ilustrativo: fuente === "muestra" ? false : !!C.meta.ilustrativo, resumen, bbox: L && fuente === "muestra" ? L.bbox : celda ? celda.bbox : null };
+      ilustrativo: ilus, resumen, bbox: L && fuente === "muestra" ? L.bbox : celda ? celda.bbox : null };
   }
-  function resumir(serie, unidad) {
+  // Resumen en la unidad ORIGINAL de la capa (formato de docs/TARJETA.md); la conversión para mostrar la hace la tarjeta.
+  function resumir(serie, unidad, lugar, ilustrativo) {
     let r; try { r = Stats.analizar(serie.valores, serie.inicio); } catch (e) { return null; }
     if (!r || !isFinite(r.b)) return null;
     const v = Stats.veredicto(r), media = a => a.reduce((s, x) => s + x.v, 0) / a.length;
-    const anual = r.anual.filter(x => x.completo), A = anual.slice(0, 10), B = anual.slice(-10);
-    if (!A.length) return null;
-    return { antes: media(A), hoy: media(B), unidad, pendiente_decada: r.porDecada, ic95: r.icDecada, p: v.p, veredicto: v.clave, texto: v.texto,
-      caras: Math.max(0, Math.floor(-Math.log2(Math.max(v.p, 1e-300)))), periodos: { antes: [A[0].y, A.at(-1).y], hoy: [B[0].y, B.at(-1).y] }, analisis: r };
+    const anual = r.anual.filter(x => x.completo), k = Math.min(10, Math.floor(anual.length / 2)), A = anual.slice(0, k), B = anual.slice(-k);
+    if (!k) return null;
+    return { antes: media(A), hoy: media(B), antes_periodo: [A[0].y, A.at(-1).y], hoy_periodo: [B[0].y, B.at(-1).y], unidad,
+      pendiente_decada: r.porDecada, ic95: r.icDecada, p: v.p, veredicto: v.clave, texto: v.texto,
+      caras: Math.max(0, Math.floor(-Math.log2(Math.max(v.p, 1e-300)))), lugar, ilustrativo, analisis: r };
   }
   async function elegir(lon, lat, mover = true) {
     const n = ++pedido;
@@ -380,23 +387,39 @@
   const sig2 = x => { const a = Math.abs(x); return a === 0 ? 0 : Math.max(0, Math.min(5, 1 - Math.floor(Math.log10(a)))); }; // 2 cifras significativas
   function tarjetaHTML(d) {
     const R = d.resumen, C = CAPAS[d.capa], E = C.estilo;
-    if (window.Tarjeta && typeof Tarjeta.html === "function") return Tarjeta.html(R, { lugar: d.nombre, capa: d.capa, titulo: C.meta.titulo, unidad: d.unidad, fuente: d.fuenteDatos, ilustrativo: d.ilustrativo });
+    if (window.Tarjeta && typeof Tarjeta.html === "function") {
+      let anio; try { anio = Tarjeta.anioGuardado ? Tarjeta.anioGuardado() : undefined; } catch (e) { /* sin almacenamiento */ }
+      return Tarjeta.html(sinAnalisis(R), { capa: C.tipo, anioNacimiento: anio == null ? undefined : anio });
+    }
     const seguro = R.veredicto === "muy" || R.veredicto === "si", sube = R.pendiente_decada > 0;
     const calor = C.tipo === "temp", tono = !seguro ? "" : (calor ? (sube ? "hot" : "wet") : (sube ? "wet" : "hot"));
     const col = tono === "hot" ? "var(--warm)" : tono === "wet" ? "var(--cool)" : "var(--muted)";
-    const dec = decimales(R.hoy), on = Math.min(10, R.caras), u = esc(R.unidad || "");
+    const M = mostrar(R.unidad), antes = R.antes * M.f, hoy = R.hoy * M.f, pend = R.pendiente_decada * M.f;
+    const dec = decimales(hoy), on = Math.min(10, R.caras), u = esc(M.u);
     const per = p => `${p[0]}–${String(p[1]).slice(2)}`;
     const mon = !seguro ? (R.caras <= 1 ? "Como sacar <b>cara</b> al lanzar una moneda: pasa todo el tiempo. <b>No podemos asegurar que cambió.</b>" : `Como sacar <b>${R.caras} caras seguidas</b>: pasa seguido. <b>No podemos asegurar que cambió.</b>`)
       : R.caras > 10 ? "Como sacar <b>más de 10 caras seguidas</b>: <b>el cambio es real.</b>" : `Como sacar <b>${R.caras} caras seguidas</b>: pasa 1 vez de cada ${2 ** R.caras}. <b>${R.veredicto === "muy" ? "Es muy probable que sea real." : "Probablemente es real, con menos margen."}</b>`;
     const etiqueta = d.ilustrativo ? "datos ilustrativos" : d.fuente === "muestra" ? "serie real de muestra NASA" : "datos NASA";
     return `<article class="tc"><div class="tc-top ${tono}"><div class="tc-lugar"><div><b>${esc(d.nombre)}</b><span>${esc(C.meta.titulo || E.nombre)} · ${etiqueta}</span></div></div>
-      <div class="tc-num"><div><small>Antes (${per(R.periodos.antes)})</small><b>${fmt(R.antes, dec)}<span>${u}</span></b></div><div style="color:var(--muted);font-size:1.3rem;padding-bottom:4px">→</div><div><small>Hoy (${per(R.periodos.hoy)})</small><b>${fmt(R.hoy, dec)}<span>${u}</span></b></div></div>
-      <div class="tc-ver" style="color:${col}">${seguro ? `${sube ? "▲ " + E.R : "▼ " + E.L}` : "≈ Sin cambio claro"} <span style="font-size:.8em;color:var(--muted)">${R.pendiente_decada > 0 ? "+" : "−"}${fmt(Math.abs(R.pendiente_decada), sig2(R.pendiente_decada))} ${u} por década</span></div></div>
+      <div class="tc-num"><div><small>Antes (${per(R.antes_periodo)})</small><b>${fmt(antes, dec)}<span>${u}</span></b></div><div style="color:var(--muted);font-size:1.3rem;padding-bottom:4px">→</div><div><small>Hoy (${per(R.hoy_periodo)})</small><b>${fmt(hoy, dec)}<span>${u}</span></b></div></div>
+      <div class="tc-ver" style="color:${col}">${seguro ? `${sube ? "▲ " + E.R : "▼ " + E.L}` : "≈ Sin cambio claro"} <span style="font-size:.8em;color:var(--muted)">${pend > 0 ? "+" : "−"}${fmt(Math.abs(pend), sig2(pend))} ${u} por década</span></div></div>
       <div class="tc-cuerpo"><div><h4>¿Es seguro?</h4><div class="monedas" aria-hidden="true">${Array.from({ length: 10 }, (_, i) => `<i class="${i < on ? "on" : ""}"></i>`).join("")}</div><p>${mon}</p></div>
       <p style="color:var(--muted);font-size:.78rem">Fuente: ${esc(d.fuenteDatos || "")}</p></div></article>`;
   }
+  // Prueba detallada (animación de 5 pasos de la Tarea 3), si animacion.js está cargado.
+  let anim = null;
+  function prueba(d) {
+    const caja = $("pruebaCaja"), cont = $("prueba");
+    if (anim) { try { anim.destruir(); } catch (e) { /* ya destruida */ } anim = null; }
+    const hay = !!(d && d.serie && d.resumen && caja && cont && window.Tarjeta && typeof Tarjeta.animacion === "function");
+    if (caja) { caja.hidden = !hay; if (!hay) caja.open = false; }
+    if (!hay) return;
+    try { anim = Tarjeta.animacion(cont, { valores: d.serie, inicio: d.inicio }, { capa: CAPAS[d.capa].tipo, unidad: d.resumen.unidad, lugar: d.nombre, analisis: d.resumen.analisis }); }
+    catch (e) { console.warn("[Terra] no se pudo crear la animación", e); caja.hidden = true; }
+  }
   function mostrarTarjeta() {
     const el = $("tarjeta"); if (!el) return;
+    prueba(seleccion && !seleccion.cargando ? seleccion.datos : null);
     if (!seleccion) { el.innerHTML = `<div class="vacio"><b style="font-family:var(--f-display);font-size:1.1rem">Elige un lugar del planeta</b><p>Toca cualquier punto del globo, o usa los botones de abajo a la derecha para ir a un caso con datos reales.</p></div>`; return; }
     if (seleccion.cargando) { el.innerHTML = `<div class="vacio"><span class="coords">${nombreLugar(seleccion.lon, seleccion.lat)}</span><p>Buscando la serie de este lugar…</p></div>`; return; }
     const d = seleccion.datos;
@@ -412,9 +435,9 @@
     const C = CAPAS[capa], E = C.estilo, m = C.meta;
     $("capas").innerHTML = ORDEN.map(id => { const X = CAPAS[id]; return `<button class="capa" type="button" data-c="${esc(id)}" aria-pressed="${id === capa}"><span aria-hidden="true">${X.estilo.ico}</span>${esc(X.estilo.nombre)}${X.meta.ilustrativo ? " <small>ilustrativo</small>" : ""}</button>`; }).join("");
     $("leyT").textContent = (m.titulo || E.nombre) + (m.respaldo ? " · patrón ilustrativo" : "");
-    const u = m.unidad ? ` ${m.unidad}` : "";
-    $("leyL").textContent = m.respaldo ? E.L : `${E.L} (−${fmt(C.lim, sig2(C.lim))}${u}/década)`;
-    $("leyR").textContent = m.respaldo ? E.R : `${E.R} (+${fmt(C.lim, sig2(C.lim))}${u}/década)`;
+    const M = mostrar(m.unidad), u = M.u ? ` ${M.u}` : "", lim = C.lim * M.f;
+    $("leyL").textContent = m.respaldo ? E.L : `${E.L} (−${fmt(lim, sig2(lim))}${u} por década)`;
+    $("leyR").textContent = m.respaldo ? E.R : `${E.R} (+${fmt(lim, sig2(lim))}${u} por década)`;
     $("barra").style.background = `linear-gradient(90deg,${E.pal.join(",")})`;
     if ($("capaTag")) $("capaTag").textContent = E.nombre;
     const aviso = $("aviso");
