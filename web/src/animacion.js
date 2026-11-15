@@ -16,7 +16,9 @@
  *                                 duracionTotal, inicioDePaso, construirSVG, textosPasos }
  *
  * Depende de: tarjeta_capas.js (Tarjeta.capa, Tarjeta.formato), tarjeta.js (Tarjeta.escapar,
- * Tarjeta.interno) y, si no se pasa `opciones.analisis`, de stats.js (window.Stats).
+ * Tarjeta.interno) y de stats.js (el `Stats` global, o `opciones.stats`).
+ * Ojo: stats.js declara `const Stats` en el nivel superior; en el navegador eso es una variable
+ * global pero NO una propiedad de window, por eso se busca con `typeof Stats`.
  */
 (function (raiz) {
   "use strict";
@@ -345,6 +347,16 @@
   // Contador para ids de recorte únicos (no es global: vive dentro de este módulo).
   let siguienteId = 1;
 
+  /**
+   * El motor de stats.js. `const Stats` de un script clásico es global pero no cuelga de window,
+   * así que se busca por nombre; en Node (módulo) no existe y `typeof` evita el error.
+   */
+  function statsGlobal() {
+    if (raiz.Stats) return raiz.Stats;
+    // eslint-disable-next-line no-undef
+    return typeof Stats !== "undefined" ? Stats : undefined;
+  }
+
   /** Preferencia del sistema "reducir movimiento"; si no se puede leer, false. */
   function prefiereMenosMovimiento() {
     try { return !!(raiz.matchMedia && raiz.matchMedia("(prefers-reduced-motion: reduce)").matches); } catch (e) { return false; }
@@ -384,7 +396,7 @@
    * @param {string|string[]} [opciones.lugar] nombre del lugar, o uno por serie
    * @param {string[]} [opciones.textos] texto de cada paso (reemplaza los de por defecto; los vacíos se ignoran)
    * @param {object|object[]} [opciones.analisis] resultado de Stats.analizar de cada serie, si ya se tiene
-   * @param {object} [opciones.stats] motor estadístico (por defecto window.Stats)
+   * @param {object} [opciones.stats] motor estadístico (por defecto el `Stats` global de stats.js)
    * @param {function} [opciones.programar] por defecto requestAnimationFrame
    * @param {function} [opciones.cancelar] por defecto cancelAnimationFrame
    * @param {function} [opciones.ahora] por defecto performance.now
@@ -404,8 +416,8 @@
     const op = opciones || {};
     const lista = (Array.isArray(serie) ? serie : [serie]).filter((s) => s && Array.isArray(s.valores)).slice(0, MAX_SERIES);
     if (!lista.length) throw new Error("Tarjeta.animacion: falta la serie ({ valores, inicio })");
-    const stats = op.stats || raiz.Stats;
-    if (!stats || typeof stats.veredicto !== "function") throw new Error("Tarjeta.animacion: necesita stats.js (window.Stats) u opciones.stats");
+    const stats = op.stats || statsGlobal();
+    if (!stats || typeof stats.veredicto !== "function") throw new Error("Tarjeta.animacion: necesita stats.js (cárgalo antes) u opciones.stats");
     const dados = Array.isArray(op.analisis) ? op.analisis : op.analisis ? [op.analisis] : [];
     const analisis = lista.map((s, k) => dados[k] || stats.analizar(s.valores, s.inicio));
     const veredictos = analisis.map((r) => (r && r.pts && r.pts.length ? stats.veredicto(r) : { clave: "no" }));

@@ -111,6 +111,23 @@ test.describe("al crearse", () => {
   test("sin stats.js lanza un error claro", () => {
     assert.throws(() => Tarjeta.animacion(new ContenedorFalso(), SERIE.serie, { stats: null }), /necesita stats\.js/);
   });
+  test("en el navegador encuentra el Stats global de stats.js, aunque no cuelgue de window", () => {
+    // Como en la página: scripts clásicos que comparten el ámbito global. `const Stats` no crea window.Stats.
+    const vm = require("vm"), fs = require("fs");
+    const ctx = { console, Math, Date, JSON, Number, String, Array, Object, Error, Set, Map };
+    ctx.window = ctx;
+    vm.createContext(ctx);
+    for (const f of ["stats.js", "tarjeta_capas.js", "tarjeta.js", "animacion.js"]) {
+      vm.runInContext(fs.readFileSync(path.join(SRC, f), "utf8"), ctx, { filename: f });
+    }
+    assert.equal(ctx.Stats, undefined, "stats.js no debería crear window.Stats");
+    assert.equal(Object.keys(ctx).filter((k) => /^[A-Z]/.test(k) && !["Math", "Date", "JSON", "Number", "String", "Array", "Object", "Error", "Set", "Map"].includes(k)).join(), "Tarjeta",
+      "el único global nuevo es Tarjeta");
+    const c = new ContenedorFalso(), reloj = relojFalso();
+    const anim = ctx.Tarjeta.animacion(c, SERIE.serie, { capa: "temp", programar: reloj.programar, cancelar: reloj.cancelar, ahora: reloj.ahora, reducirMovimiento: false });
+    assert.ok(c.svg.includes("<polyline"));
+    assert.equal(anim.estado().paso, 4);
+  });
   test("si no recibe el análisis, lo calcula con stats", () => {
     const { c } = crear({ analisis: undefined });
     assert.ok(c.svg.includes("<polyline"));
