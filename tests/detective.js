@@ -72,3 +72,62 @@ test('responde en lenguaje sencillo: sin p-valores, m³/m³ ni notación cientí
   assert.match(r, /más de 10 caras seguidas/);
   assert.match(r, /Ver la prueba completa/);
 });
+
+// ---------- Línea de tiempo (años en la pregunta) ----------
+function mapaConAnios({ anioInicial = null, pasado = {}, futuro = {} } = {}) {
+  const terra = mapa(); let anio = anioInicial;
+  terra.anio = () => anio;
+  terra.elegirAnio = async y => { terra.llamadas.push(['anio', y]); anio = y; return y; };
+  terra.resumenAnio = async (lon, lat, capa, y) => {
+    terra.llamadas.push(['resumenAnio', lon, lat, capa, y]);
+    const comun = { anio: y, unidad: '°C', base: [2000, 2025], normal: 18.7, lugar: 'Morelos' };
+    return y <= 2025 ? { ...comun, tipo: 'pasado', valor: 20.0, ...pasado }
+      : { ...comun, tipo: 'proyeccion', valor: 19.6, rango: [19.3, 19.9], seguro: true, veredicto: 'muy', ...futuro };
+  };
+  return terra;
+}
+test('reconoce años: «en 2040», «2024», «dentro de N años» y rechaza años fuera de 2000–2050', () => {
+  assert.equal(Detective.extraerAnio('¿Cómo será Morelos en 2040?'), 2040);
+  assert.equal(Detective.extraerAnio('¿Cómo fue 2024?'), 2024);
+  assert.equal(Detective.extraerAnio('lluvia en el Sahel dentro de 15 años', 2026), 2041);
+  assert.equal(Detective.extraerAnio('¿Se calienta Morelos?'), undefined);
+  assert.ok(Number.isNaN(Detective.extraerAnio('calor en Morelos en 1990')));
+  assert.ok(Number.isNaN(Detective.extraerAnio('Morelos en 2080')));
+});
+test('un año pasado mueve la línea de tiempo y compara con lo normal', async () => {
+  const terra = mapaConAnios();
+  const r = await Detective.investigar(Detective.SUGERENCIAS[4], { terra });
+  assert.deepEqual(terra.llamadas, [['capa', 'temp'], ['anio', 2024], ['ir', -99.07, 18.74], ['resumenAnio', -99.07, 18.74, 'temp', 2024]]);
+  assert.match(r, /Morelos, México en 2024/);
+  assert.match(r, /20\.0 °C, 1\.3 °C más que lo normal/);
+  assert.match(r, /promedio 2000–2025/);
+  assert.match(r, /más caliente/);
+  assert.match(r, /línea de tiempo/);
+  assert.doesNotMatch(r, /pronóstico/);
+});
+test('un año futuro da la proyección con su rango y aclara que no es un pronóstico', async () => {
+  const terra = mapaConAnios();
+  const r = await Detective.investigar(Detective.SUGERENCIAS[5], { terra });
+  assert.deepEqual(terra.llamadas.find(c => c[0] === 'anio'), ['anio', 2040]);
+  assert.match(r, /si la tendencia de 2000–2025 sigue igual/);
+  assert.match(r, /unos 19\.6 °C \(entre 19\.3 y 19\.9 °C\)/);
+  assert.match(r, /No es un pronóstico/);
+  const dudosa = await Detective.investigar(Detective.SUGERENCIAS[5], { terra: mapaConAnios({ futuro: { seguro: false, veredicto: 'no' } }) });
+  assert.match(dudosa, /muy dudosa/);
+});
+test('sin año vuelve a la tendencia; año fuera de rango no mueve el mapa', async () => {
+  const terra = mapaConAnios({ anioInicial: 2030 });
+  await Detective.investigar('¿Se está calentando Morelos?', { terra });
+  assert.deepEqual(terra.llamadas.slice(0, 2), [['capa', 'temp'], ['anio', null]]);
+  assert.ok(terra.llamadas.some(c => c[0] === 'resumen'));
+  const fuera = mapaConAnios();
+  assert.match(await Detective.investigar('¿Cómo será Morelos en 2080?', { terra: fuera }), /2000 a 2050/);
+  assert.deepEqual(fuera.llamadas, []);
+});
+test('año sin datos completos lo dice; la IA puede pedir un año válido', async () => {
+  const r = await Detective.investigar('¿Cómo fue 2024 en Morelos?', { terra: mapaConAnios({ pasado: { valor: null } }) });
+  assert.match(r, /no hay datos completos/);
+  const terra = mapaConAnios();
+  await Detective.investigar('dime de Morelos', { terra, ia: { json: async () => ({ capa: 'temp', lugares: ['morelos'], anio: 2035 }) } });
+  assert.deepEqual(terra.llamadas.find(c => c[0] === 'resumenAnio'), ['resumenAnio', -99.07, 18.74, 'temp', 2035]);
+});

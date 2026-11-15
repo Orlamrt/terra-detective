@@ -619,10 +619,22 @@
     capas: () => ORDEN.map(id => { const m = CAPAS[id].meta; return { id, titulo: m.titulo, unidad: m.unidad, ilustrativo: !!m.ilustrativo }; }),
     elegirCapa: id => elegirCapa(id),
     anio: () => anio,
-    elegirAnio: y => elegirAnio(y),
+    elegirAnio: y => { pararReloj(); return elegirAnio(y); },
     capaActual: () => capa,
     async irA(lon, lat) { await preparado; girando = false; const d = await elegir(+lon, +lat); return { lon: +lon, lat: +lat, celda: d ? d.celda : null }; },
     async resumen(lon, lat, id = capa) { await preparado; const d = await datosDe(+lon, +lat, id); return d && d.resumen ? publico(d.resumen) : null; },
+    // Un año en un lugar: pasado = valor medido frente a lo normal; futuro = proyección de la tendencia (lo mismo que notaAnio).
+    async resumenAnio(lon, lat, id = capa, y = anio) {
+      await preparado; y = Math.round(+y); if (!isFinite(y)) return null;
+      const d = await datosDe(+lon, +lat, id), R = d && d.resumen, r = R && R.analisis; if (!r) return null;
+      const completos = r.anual.filter(x => x.completo); if (!completos.length) return null;
+      const y0 = completos[0].y, y1 = completos[completos.length - 1].y;
+      const comun = { anio: y, unidad: R.unidad, base: [y0, y1], normal: redondo(completos.reduce((s, x) => s + x.v, 0) / completos.length, 6), lugar: R.lugar, ilustrativo: R.ilustrativo };
+      if (y <= y1) { const a = r.anual.find(x => x.y === y && x.completo); return { ...comun, tipo: "pasado", valor: a ? redondo(a.v, 6) : null }; }
+      const dt = y + 0.5 - r.tm, lo = r.meanAll + r.ic[0] * dt, hi = r.meanAll + r.ic[1] * dt;
+      return { ...comun, tipo: "proyeccion", valor: redondo(r.meanAll + r.b * dt, 6), rango: [redondo(Math.min(lo, hi), 6), redondo(Math.max(lo, hi), 6)],
+        seguro: R.veredicto === "muy" || R.veredicto === "si", veredicto: R.veredicto, caras: R.caras };
+    },
     async serie(lon, lat, id = capa) { await preparado; const d = await datosDe(+lon, +lat, id); return d && d.serie ? { valores: d.serie, inicio: d.inicio, unidad: d.unidad } : null; },
     volverAlGlobo,
     rendimiento: () => ({ ms: +ultimoMs.toFixed(2), paso: pasoMov }),

@@ -90,6 +90,7 @@ La Tarea 2 expone en `window.Terra` (la Tarea 4 solo las llama):
 | `Terra.irA(lon, lat)` | Aplana el globo y hace zoom al lugar; abre la tarjeta | `Promise<{lon, lat, celda}>` |
 | `Terra.resumen(lon, lat, capa?)` | Datos de la tarjeta sin mover el mapa | `Promise<{antes, hoy, unidad, pendiente_decada, ic95, p, veredicto, caras}>` |
 | `Terra.volverAlGlobo()` | Regresa a la vista de globo | `void` |
+| `Terra.resumenAnio(lon, lat, capa?, anio?)` | Un año en un lugar, sin mover el mapa. Pasado: valor medido y lo normal (promedio de los años completos). Futuro: proyección de la tendencia con su rango | `Promise<{anio, tipo: "pasado"\|"proyeccion", valor, normal, base:[y0,y1], unidad, lugar, rango?, seguro?, veredicto?, caras?}>` (`valor` es `null` si ese año no está completo) |
 | `Terra.anio()` | Año que pinta el mapa (`null` = tendencia por década) | `number \| null` |
 | `Terra.elegirAnio(y)` | Pinta el año `y` (2000–2050; pasado = anomalía, futuro = proyección de la tendencia) o `null` para volver a la tendencia | `Promise<number \| null>` |
 
