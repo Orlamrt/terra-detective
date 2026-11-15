@@ -49,6 +49,20 @@ El campo `unidad` de cada capa y los valores de `data/series/` vienen **siempre*
 
 `data/capas/index.json` lista las capas disponibles (lo regenera `pipeline/exportar.py`), en orden de preferencia (la primera es la que abre el globo), p. ej. `["temp", "lluvia", "suelo"]`.
 
+### 1b. Anomalía de cada año · `data/capas/<capa>_anual.json`
+
+Lo produce `pipeline/anual.py` desde `data/crudos/<capa>_2deg.nc`. Lo usa la línea de tiempo del globo.
+
+```json
+{ "version": 1, "capa": "temp", "unidad": "°C", "base": [2000, 2025], "anios": [2000, "…", 2025],
+  "escala": 0.01, "tope": 1.47, "t_centro": 2013.0, "rejilla": { "…": "igual que la capa" },
+  "anomalia": [[-29, 12, null, "…"], "…un arreglo por año…"] }
+```
+
+- `anomalia[a][k]` × `escala` = promedio del año `anios[a]` − promedio de los años completos de la celda (en `unidad`). Índice `k` como en la capa; `null` = sin datos o año incompleto.
+- `tope`: percentil 95 de |anomalía|; la web lo usa como extremo de la escala de colores (años pasados y proyección).
+- `t_centro`: tiempo medio de los datos. **Proyección** a un año futuro `y` (la calcula la web): `pendiente_decada × (y + 0.5 − t_centro) / 10`, como anomalía respecto al mismo promedio. Es prolongar la tendencia, no un pronóstico climático; las celdas con `significancia` 0 se muestran apagadas.
+
 ## 2. Series por celda · `data/series/<capa>/<ti>_<tj>.json`
 
 Teselas de 10°×10° para que la web descargue solo lo que necesita al hacer clic.
@@ -76,8 +90,10 @@ La Tarea 2 expone en `window.Terra` (la Tarea 4 solo las llama):
 | `Terra.irA(lon, lat)` | Aplana el globo y hace zoom al lugar; abre la tarjeta | `Promise<{lon, lat, celda}>` |
 | `Terra.resumen(lon, lat, capa?)` | Datos de la tarjeta sin mover el mapa | `Promise<{antes, hoy, unidad, pendiente_decada, ic95, p, veredicto, caras}>` |
 | `Terra.volverAlGlobo()` | Regresa a la vista de globo | `void` |
+| `Terra.anio()` | Año que pinta el mapa (`null` = tendencia por década) | `number \| null` |
+| `Terra.elegirAnio(y)` | Pinta el año `y` (2000–2050; pasado = anomalía, futuro = proyección de la tendencia) o `null` para volver a la tendencia | `Promise<number \| null>` |
 
-Eventos (`window.addEventListener`): `terra:lugar` (cuando el usuario elige un lugar) y `terra:capa` (cuando cambia la capa), con el detalle en `event.detail`.
+Eventos (`window.addEventListener`): `terra:lugar` (cuando el usuario elige un lugar), `terra:capa` (cuando cambia la capa) y `terra:anio` (cuando cambia el año: `{anio, proyeccion}`), con el detalle en `event.detail`.
 
 ## 5. Componentes de la tarjeta (Tarea 3)
 

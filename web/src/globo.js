@@ -130,11 +130,32 @@
   function colores() {
     COL = { ocean: css("--ocean"), line: css("--land-line"), grat: css("--grat"), ink: css("--ink"), surface: css("--surface"), accent: css("--accent"), mark: css("--mark") };
     OCEANO = rgb(COL.ocean);
-    for (const C of Object.values(CAPAS)) C.tex = null;
+    for (const C of Object.values(CAPAS)) C.texs = new Map();
+  }
+  /* ---------- línea de tiempo: tendencia, año pasado (anomalía) o proyección ---------- */
+  const ANIO_MIN = 2000, ANIO_MAX = 2050;
+  let anio = null; // null = tendencia por década
+  function cargarAnual(C) {
+    if (C.anual !== undefined || C.meta.respaldo) return Promise.resolve(C.anual);
+    C.anual = null;
+    return json(BASE + `capas/${C.id}_anual.json`).then(d => { C.anual = d; C.texs = new Map(); return d; }).catch(() => null);
+  }
+  const ultimoAnio = C => C.anual ? C.anual.anios[C.anual.anios.length - 1] : 2025;
+  // Qué valor se pinta en cada celda según el año elegido.
+  function vista(C) {
+    const m = C.meta, A = C.anual;
+    if (anio == null || !A) return { clave: "t", lim: C.lim, v: k => m.pendiente_decada[k], s: k => m.significancia[k], tenue: () => false };
+    const ia = A.anios.indexOf(anio);
+    if (ia >= 0) { const fila = A.anomalia[ia]; return { clave: "a" + anio, lim: A.tope, v: k => fila[k] == null ? null : fila[k] * A.escala, s: () => 0, tenue: () => false }; }
+    // proyección: la línea de tendencia de cada celda prolongada (anomalía respecto al promedio de los años con datos)
+    const dt = (anio + 0.5 - A.t_centro) / 10;
+    return { clave: "p" + anio, lim: A.tope, v: k => { const p = m.pendiente_decada[k]; return p == null ? null : p * dt; },
+      s: k => m.significancia[k], tenue: k => !(m.significancia[k] >= 1) };
   }
   const K = 4; // texeles por celda en la textura del globo (para hornear los puntos)
   function textura(C) {
-    if (C.tex) return C.tex;
+    const V = vista(C); C.texs ||= new Map();
+    if (C.texs.has(V.clave)) return C.texs.get(V.clave);
     const g = C.meta.rejilla, nlat = g.nlat, nlon = g.nlon;
     const escala = d3.scaleLinear().domain([-1, -.5, 0, .5, 1]).range(C.estilo.pal).clamp(true);
     const alfa = .88, tinta = rgb(COL.ink);
@@ -147,12 +168,13 @@
     const GW = nlon * K, GH = nlat * K, globo = new Uint8ClampedArray(GW * GH * 4);
     const sig = [[], [], []];
     for (let i = 0; i < nlat; i++) for (let j = 0; j < nlon; j++) {
-      const k = i * nlon + j, v = C.meta.pendiente_decada[k];
+      const k = i * nlon + j, v = V.v(k);
       let c = OCEANO;
-      if (v != null && isFinite(v)) { const n = Math.round((Math.max(-1, Math.min(1, v / C.lim)) + 1) / 2 * (NIVELES - 1)); nivel[k] = n; c = paleta[n]; }
+      if (v != null && isFinite(v)) { const n = Math.round((Math.max(-1, Math.min(1, v / V.lim)) + 1) / 2 * (NIVELES - 1)); nivel[k] = n; c = paleta[n];
+        if (V.tenue(k)) c = c.map((x, q) => Math.round(x * .35 + OCEANO[q] * .65)); } // proyección dudosa: color apagado
       const fila = nlat - 1 - i, o = (fila * nlon + j) * 4;
       pd.data[o] = c[0]; pd.data[o + 1] = c[1]; pd.data[o + 2] = c[2]; pd.data[o + 3] = 255;
-      const s = nivel[k] >= 0 ? C.meta.significancia[k] : null;
+      const s = nivel[k] >= 0 ? V.s(k) : null;
       if (s === 1 || s === 2) sig[s].push(k);
       for (let a = 0; a < K; a++) for (let b = 0; b < K; b++) {
         const punto = (s === 2 || s === 1) && a === 1 && b === 1, w = s === 2 ? .6 : .32;
@@ -162,8 +184,9 @@
       }
     }
     pg.putImageData(pd, 0, 0);
-    C.tex = { plano, globo: new Uint32Array(globo.buffer), GW, GH, nivel, paleta: paleta.map(c => `rgb(${c})`), sig };
-    return C.tex;
+    const T = { plano, globo: new Uint32Array(globo.buffer), GW, GH, nivel, paleta: paleta.map(c => `rgb(${c})`), sig };
+    C.texs.set(V.clave, T); if (C.texs.size > 8) C.texs.delete(C.texs.keys().next().value); // memoria acotada al reproducir los años
+    return T;
   }
 
   /* ---------- proyección globo ↔ mapa ---------- */
@@ -422,7 +445,7 @@
       if (!nom || n !== pedido || !seleccion || seleccion.datos !== d) return;
       d.nombre = nom; if (d.resumen) d.resumen.lugar = nom;
       const caja = $("pruebaCaja");
-      if (caja && caja.open) { const el = $("tarjeta"); if (el && d.resumen) el.innerHTML = tarjetaHTML(d); } // no reinicia la animación abierta
+      if (caja && caja.open) { const el = $("tarjeta"); if (el && d.resumen) el.innerHTML = tarjetaCompleta(d); } // no reinicia la animación abierta
       else mostrarTarjeta();
     });
     await vuelo;
@@ -446,6 +469,28 @@
   const fmt = (x, d) => x.toLocaleString("es-MX", { minimumFractionDigits: d, maximumFractionDigits: d });
   const decimales = x => { const a = Math.abs(x); return a >= 100 ? 0 : a >= 10 ? 1 : a >= 1 ? 2 : a >= .01 ? 3 : 4; };
   const sig2 = x => { const a = Math.abs(x); return a === 0 ? 0 : Math.max(0, Math.min(5, 1 - Math.floor(Math.log10(a)))); }; // 2 cifras significativas
+  // Debajo de la tarjeta: qué pasó en el año elegido, o qué pasaría si la tendencia sigue.
+  function notaAnio(d) {
+    if (anio == null || !d || !d.resumen || !d.resumen.analisis) return "";
+    const r = d.resumen.analisis, M = mostrar(d.resumen.unidad), u = M.u ? " " + M.u : "";
+    const dec = x => { const a = Math.abs(x); return a >= 100 ? 0 : a >= 1 ? 1 : 2; }; // 1,044 mm · 20.2 °C · 0.35 %
+    const v = x => fmt(x * M.f, dec(x * M.f)) + u;
+    const completos = r.anual.filter(x => x.completo), y0 = completos[0].y, y1 = completos[completos.length - 1].y;
+    const base = completos.reduce((s, x) => s + x.v, 0) / completos.length;
+    const caja = (titulo, cuerpo) => `<div class="nota-anio"><b>${titulo}</b><p>${cuerpo}</p></div>`;
+    if (anio <= y1) {
+      const a = r.anual.find(x => x.y === anio && x.completo);
+      if (!a) return caja(String(anio), `No hay datos completos de ${anio} en este lugar.`);
+      const dif = (a.v - base) * M.f;
+      return caja(`En ${anio}`, `El promedio fue de ${v(a.v)}: ${Math.abs(dif) < 1e-9 ? "igual que" : `${fmt(Math.abs(dif), dec(dif))}${u} ${dif > 0 ? "más" : "menos"} que`} lo normal (promedio ${y0}–${y1}).`);
+    }
+    const dt = anio + 0.5 - r.tm, c = r.meanAll + r.b * dt, lo = r.meanAll + r.ic[0] * dt, hi = r.meanAll + r.ic[1] * dt;
+    const seguro = d.resumen.veredicto === "muy" || d.resumen.veredicto === "si";
+    return caja(`Proyección ${anio}`, `Si la tendencia de ${y0}–${y1} sigue igual, en ${anio} el promedio sería de unos ${v(c)} (entre ${v(Math.min(lo, hi))} y ${v(Math.max(lo, hi))}).`
+      + (seguro ? "" : " <b>Ojo:</b> aquí la tendencia no es segura, así que esta cifra es muy dudosa.")
+      + ` <span class="tenue">No es un pronóstico del clima: solo prolonga la línea de tendencia.</span>`);
+  }
+  const tarjetaCompleta = d => tarjetaHTML(d) + notaAnio(d);
   function tarjetaHTML(d) {
     const R = d.resumen, C = CAPAS[d.capa], E = C.estilo;
     if (window.Tarjeta && typeof Tarjeta.html === "function") {
@@ -489,7 +534,7 @@
     if (!seleccion) { el.innerHTML = `<div class="vacio"><b style="font-family:var(--f-display);font-size:1.1rem">Elige un lugar del planeta</b><p>Toca cualquier punto del globo, o usa los botones de abajo a la derecha para ir a un caso con datos reales.</p></div>`; return; }
     if (seleccion.cargando) { el.innerHTML = `<div class="vacio"><b style="font-family:var(--f-display);font-size:1.1rem">${esc(nombreBase(seleccion.lon, seleccion.lat))}</b><span class="coords">${nombreLugar(seleccion.lon, seleccion.lat)}</span><p>Buscando la serie de este lugar…</p></div>`; return; }
     const d = seleccion.datos;
-    if (d && d.resumen) { el.innerHTML = tarjetaHTML(d); return; }
+    if (d && d.resumen) { el.innerHTML = tarjetaCompleta(d); return; }
     const C = CAPAS[capa];
     const motivo = C.meta.respaldo ? "Todavía no hay capas con datos de la NASA en <code>data/capas/</code>; el mapa muestra un patrón ilustrativo."
       : d && d.celda && d.celda.sinDatos ? "Esta celda no tiene datos en esta capa (por ejemplo, océano en una capa de tierra)." : "No se encontró la serie de esta celda.";
@@ -502,8 +547,18 @@
     $("capas").innerHTML = ORDEN.map(id => { const X = CAPAS[id]; return `<button class="capa" type="button" data-c="${esc(id)}" aria-pressed="${id === capa}">${esc(X.estilo.nombre)}${X.meta.ilustrativo ? " <small>ilustrativo</small>" : ""}</button>`; }).join("");
     $("leyT").textContent = (m.titulo || E.nombre) + (m.respaldo ? " · patrón ilustrativo" : "");
     const M = mostrar(m.unidad), u = M.u ? ` ${M.u}` : "", lim = C.lim * M.f;
-    $("leyL").textContent = m.respaldo ? E.L : `${E.L} (−${fmt(lim, sig2(lim))}${u} por década)`;
-    $("leyR").textContent = m.respaldo ? E.R : `${E.R} (+${fmt(lim, sig2(lim))}${u} por década)`;
+    const V = vista(C), futuro = anio != null && C.anual && anio > ultimoAnio(C);
+    if (anio == null || !C.anual) {
+      $("leyL").textContent = m.respaldo ? E.L : `${E.L} (−${fmt(lim, sig2(lim))}${u} por década)`;
+      $("leyR").textContent = m.respaldo ? E.R : `${E.R} (+${fmt(lim, sig2(lim))}${u} por década)`;
+      if ($("leyP")) $("leyP").textContent = "● punto = el cambio es seguro";
+    } else {
+      const la = V.lim * M.f, A = C.anual;
+      $("leyT").textContent = futuro ? `${m.titulo || E.nombre} · proyección ${anio}` : `${m.titulo || E.nombre} · ${anio} comparado con lo normal`;
+      $("leyL").textContent = `${E.L} (−${fmt(la, sig2(la))}${u})`;
+      $("leyR").textContent = `${E.R} (+${fmt(la, sig2(la))}${u})`;
+      if ($("leyP")) $("leyP").textContent = futuro ? `Si la tendencia ${A.base[0]}–${A.base[1]} sigue · apagado = tendencia no segura` : `Normal = promedio ${A.base[0]}–${A.base[1]}`;
+    }
     $("barra").style.background = `linear-gradient(90deg,${E.pal.join(",")})`;
     if ($("capaTag")) $("capaTag").textContent = E.nombre;
     const aviso = $("aviso");
@@ -516,10 +571,39 @@
     }
   }
   $("capas").addEventListener("click", e => { const b = e.target.closest(".capa"); if (b) elegirCapa(b.dataset.c); });
+  let reloj = null;
+  function textoAnio() {
+    const C = CAPAS[capa], t = $("anioTxt"), b = $("modoTendencia"); if (!t || !C) return;
+    b.setAttribute("aria-pressed", String(anio == null));
+    t.textContent = anio == null ? "Tendencia 2000–2025" : anio > ultimoAnio(C) ? `${anio} · proyección` : `${anio} · datos`;
+    $("anio").value = String(anio == null ? ultimoAnio(C) : anio);
+  }
+  async function elegirAnio(y) {
+    const C = CAPAS[capa];
+    anio = y == null || !isFinite(y) ? null : Math.max(ANIO_MIN, Math.min(ANIO_MAX, Math.round(y)));
+    if (anio != null && C) await cargarAnual(C);
+    textoAnio(); pintarCapas(); pedir(true);
+    if (seleccion && seleccion.datos && seleccion.datos.resumen) { const el = $("tarjeta"); if (el) el.innerHTML = tarjetaCompleta(seleccion.datos); }
+    emitir("terra:anio", { anio, proyeccion: anio != null && C && anio > ultimoAnio(C) });
+    return anio;
+  }
+  function pararReloj() { if (reloj) { clearInterval(reloj); reloj = null; } const b = $("playAnios"); if (b) { b.textContent = "▶"; b.setAttribute("aria-label", "Reproducir los años"); } }
+  if ($("anio")) {
+    $("anio").min = ANIO_MIN; $("anio").max = ANIO_MAX;
+    $("anio").addEventListener("input", e => { pararReloj(); elegirAnio(+e.target.value); });
+    $("modoTendencia").addEventListener("click", () => { pararReloj(); elegirAnio(null); });
+    $("playAnios").addEventListener("click", () => {
+      if (reloj) return pararReloj();
+      const b = $("playAnios"); b.textContent = "⏸"; b.setAttribute("aria-label", "Pausar");
+      if (anio == null || anio >= ANIO_MAX) elegirAnio(ANIO_MIN);
+      reloj = setInterval(() => { if (anio >= ANIO_MAX) return pararReloj(); elegirAnio(anio + 1); }, reduce ? 1200 : 450);
+    });
+  }
   function elegirCapa(id) {
     if (!CAPAS[id]) return false;
     if (id !== capa) {
       capa = id; pintarCapas(); pedir(true);
+      if (anio != null) cargarAnual(CAPAS[id]).then(() => { textoAnio(); pintarCapas(); pedir(true); });
       const m = CAPAS[id].meta;
       emitir("terra:capa", { id, titulo: m.titulo, unidad: m.unidad, ilustrativo: !!m.ilustrativo });
       if (seleccion && !seleccion.cargando) elegir(seleccion.lon, seleccion.lat, false);
@@ -534,6 +618,8 @@
     listo: preparado,
     capas: () => ORDEN.map(id => { const m = CAPAS[id].meta; return { id, titulo: m.titulo, unidad: m.unidad, ilustrativo: !!m.ilustrativo }; }),
     elegirCapa: id => elegirCapa(id),
+    anio: () => anio,
+    elegirAnio: y => elegirAnio(y),
     capaActual: () => capa,
     async irA(lon, lat) { await preparado; girando = false; const d = await elegir(+lon, +lat); return { lon: +lon, lat: +lat, celda: d ? d.celda : null }; },
     async resumen(lon, lat, id = capa) { await preparado; const d = await datosDe(+lon, +lat, id); return d && d.resumen ? publico(d.resumen) : null; },
@@ -555,7 +641,7 @@
     MUESTRAS = Object.fromEntries((muestras || []).map(m => [m.id, m]));
     await cargarCapas();
     capa = ORDEN[0];
-    pintarCapas();
+    pintarCapas(); textoAnio();
     new ResizeObserver(tamanio).observe(cv);
     matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => { colores(); pedir(true); });
     new MutationObserver(() => { colores(); pedir(true); }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
