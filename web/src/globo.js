@@ -118,7 +118,9 @@
     return teselas.get(url).then(t => t && t.celdas && t.celdas[`${c.i}_${c.j}`] ? { valores: t.celdas[`${c.i}_${c.j}`], inicio: t.inicio || C.meta.inicio } : null);
   }
   function lugarCercano(lon, lat) {
-    for (const [k, L] of Object.entries(LUGARES)) { const b = L.bbox; if (lon >= b[0] - 1.5 && lon <= b[2] + 1.5 && lat >= b[1] - 1.5 && lat <= b[3] + 1.5) return k; }
+    // Margen pequeño (0.25°): solo el área del caso; antes era 1.5° y la Cd. de México salía como "Morelos".
+    const m = 0.25;
+    for (const [k, L] of Object.entries(LUGARES)) { const b = L.bbox; if (lon >= b[0] - m && lon <= b[2] + m && lat >= b[1] - m && lat <= b[3] + m) return k; }
     return null;
   }
 
@@ -340,11 +342,49 @@
 
   /* ---------- elegir un lugar ---------- */
   let pedido = 0;
+  /* ---------- nombre del lugar ---------- */
+  // Sin conexión: país (mapa 1:110m con código ISO → nombre en español del navegador) o mar/océano.
+  let paises = null;
+  const NOMBRE_ES = (() => { try { return new Intl.DisplayNames(["es"], { type: "region" }); } catch (e) { return null; } })();
+  const MARES = [ // [nombre, lon mín, lon máx, lat mín, lat máx] (aproximados; los más pequeños primero)
+    ["golfo de California", -115, -107, 22, 32], ["golfo de México", -98, -81, 18, 31], ["mar Caribe", -88, -60, 9, 22],
+    ["mar Mediterráneo", -6, 36, 30, 46], ["mar Negro", 27, 42, 40, 47], ["mar Rojo", 32, 44, 12, 30], ["golfo Pérsico", 47, 57, 23, 31]];
+  function oceano(lon, lat) {
+    for (const [n, a, b, c, d] of MARES) if (lon >= a && lon <= b && lat >= c && lat <= d) return n;
+    if (lat >= 66) return "océano Ártico";
+    if (lat <= -60) return "océano Austral";
+    if ((lon >= 20 && lon < 100 && lat < 30) || (lon >= 100 && lon < 147 && lat < -10)) return "océano Índico";
+    if ((lon > -70 && lon < 20) || (lon >= -82 && lon <= -70 && lat > 25)) return "océano Atlántico";
+    return "océano Pacífico";
+  }
+  function nombreBase(lon, lat) {
+    const f = paises && paises.find(p => d3.geoContains(p, [lon, lat]));
+    if (!f) return oceano(lon, lat);
+    const a2 = f.properties.a2;
+    try { return (a2 && NOMBRE_ES && NOMBRE_ES.of(a2)) || f.properties.en; } catch (e) { return f.properties.en; }
+  }
+  // Con conexión: estado o región con OpenStreetMap (Nominatim). Una consulta por segundo como máximo,
+  // con caché por grado y tiempo límite; si falla, se queda el nombre sin conexión.
+  const NOMBRES = new Map(); let turnoNominatim = 0;
+  async function nombreDetallado(lon, lat) {
+    const k = `${Math.round(lon)}_${Math.round(lat)}`;
+    if (NOMBRES.has(k)) return NOMBRES.get(k);
+    const espera = Math.max(0, turnoNominatim - Date.now()); turnoNominatim = Date.now() + espera + 1100;
+    if (espera) await new Promise(r => setTimeout(r, espera));
+    const ctl = new AbortController(), reloj = setTimeout(() => ctl.abort(), 4000);
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=5&accept-language=es&lat=${lat.toFixed(3)}&lon=${lon.toFixed(3)}`, { signal: ctl.signal });
+      const j = r.ok ? await r.json() : null, a = (j && j.address) || {};
+      const region = a.state || a.region || a.province || a.state_district || a.county;
+      const nombre = a.country ? (region && region !== a.country ? `${region}, ${a.country}` : a.country) : null;
+      NOMBRES.set(k, nombre); return nombre;
+    } catch (e) { return null; } finally { clearTimeout(reloj); }
+  }
   function nombreLugar(lon, lat) { return `${Math.abs(lat).toFixed(1)}° ${lat >= 0 ? "N" : "S"}, ${Math.abs(lon).toFixed(1)}° ${lon >= 0 ? "E" : "O"}`; }
   async function datosDe(lon, lat, id) {
     const C = CAPAS[id]; if (!C) return null;
     const celda = celdaDe(C, lon, lat), clave = lugarCercano(lon, lat), L = clave ? LUGARES[clave] : null;
-    let serie = celda ? await serieDeCelda(id, celda) : null, fuente = serie ? "capa" : null, nombre = L ? L.nombre : null;
+    let serie = celda ? await serieDeCelda(id, celda) : null, fuente = serie ? "capa" : null, nombre = L ? L.nombre : nombreBase(lon, lat);
     if (!serie && L && L.series[C.tipo] && MUESTRAS[L.series[C.tipo]]) { // respaldo: serie real de muestra
       const m = MUESTRAS[L.series[C.tipo]], aDia = m.unidad === "mm/mes" ? 12 / 365.25 : 1; // contrato: lluvia en mm/día
       serie = { valores: aDia === 1 ? m.v : m.v.map(x => x == null ? x : x * aDia), inicio: m.inicio, unidad: aDia === 1 ? m.unidad : "mm/día", fuente: m.fuente }; fuente = "muestra";
@@ -378,6 +418,13 @@
     mostrarTarjeta();
     const { resumen, ...rest } = d || {};
     emitir("terra:lugar", { ...rest, resumen: publico(resumen) });
+    if (d && !d.lugar) nombreDetallado(lon, lat).then(nom => {
+      if (!nom || n !== pedido || !seleccion || seleccion.datos !== d) return;
+      d.nombre = nom; if (d.resumen) d.resumen.lugar = nom;
+      const caja = $("pruebaCaja");
+      if (caja && caja.open) { const el = $("tarjeta"); if (el && d.resumen) el.innerHTML = tarjetaHTML(d); } // no reinicia la animación abierta
+      else mostrarTarjeta();
+    });
     await vuelo;
     return d;
   }
@@ -440,7 +487,7 @@
     const el = $("tarjeta"); if (!el) return;
     prueba(seleccion && !seleccion.cargando ? seleccion.datos : null);
     if (!seleccion) { el.innerHTML = `<div class="vacio"><b style="font-family:var(--f-display);font-size:1.1rem">Elige un lugar del planeta</b><p>Toca cualquier punto del globo, o usa los botones de abajo a la derecha para ir a un caso con datos reales.</p></div>`; return; }
-    if (seleccion.cargando) { el.innerHTML = `<div class="vacio"><span class="coords">${nombreLugar(seleccion.lon, seleccion.lat)}</span><p>Buscando la serie de este lugar…</p></div>`; return; }
+    if (seleccion.cargando) { el.innerHTML = `<div class="vacio"><b style="font-family:var(--f-display);font-size:1.1rem">${esc(nombreBase(seleccion.lon, seleccion.lat))}</b><span class="coords">${nombreLugar(seleccion.lon, seleccion.lat)}</span><p>Buscando la serie de este lugar…</p></div>`; return; }
     const d = seleccion.datos;
     if (d && d.resumen) { el.innerHTML = tarjetaHTML(d); return; }
     const C = CAPAS[capa];
@@ -502,7 +549,8 @@
   /* ---------- arranque ---------- */
   (async () => {
     colores(); mostrarTarjeta();
-    const [topo, muestras] = await Promise.all([json("src/land-110m.json"), encontrarBase()]);
+    const [topo, muestras, topoPaises] = await Promise.all([json("src/land-110m.json"), encontrarBase(), json("src/paises-110m.json").catch(() => null)]);
+    if (topoPaises) paises = topojson.feature(topoPaises, topoPaises.objects.countries).features;
     land = topojson.feature(topo, topo.objects.land); grat = d3.geoGraticule10();
     MUESTRAS = Object.fromEntries((muestras || []).map(m => [m.id, m]));
     await cargarCapas();
