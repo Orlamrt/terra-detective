@@ -346,11 +346,12 @@ cv.addEventListener("pointermove", e => { if (!arr) return; const dx = e.clientX
 cv.addEventListener("pointerup", e => { const fueClic = arr && !movido; arr = null; if (!fueClic) return;
   const r = cv.getBoundingClientRect(), ll = invertir(e.clientX - r.left, e.clientY - r.top); if (!ll || !isFinite(ll[0])) return; elegir(ll[0], ll[1]); });
 function cercano(lon, lat) { for (const [k, L] of Object.entries(LUGARES)) { const b = L.bbox; if (lon >= b[0] - 1.5 && lon <= b[2] + 1.5 && lat >= b[1] - 1.5 && lat <= b[3] + 1.5) return k; } return null; }
-function elegir(lon, lat, clave = cercano(lon, lat)) {
+function elegir(lon, lat, clave = cercano(lon, lat), silencio = false) {
   const L = clave ? LUGARES[clave] : null;
   seleccion = L ? { lon: L.lon, lat: L.lat, bbox: L.bbox, clave } : { lon, lat, clave: null };
   volar(seleccion.lon, seleccion.lat, 1);
-  mostrarTarjeta(); narrar();
+  mostrarTarjeta(); if (!silencio) narrar();
+  dispatchEvent(new CustomEvent("terra:lugar", { detail: { lon: seleccion.lon, lat: seleccion.lat, capa, lugar: seleccion.clave } }));
 }
 function volar(lon, lat, destinoT) {
   const r0 = [...rot], r1 = [-lon, -lat], t0 = tPlano, dur = reduce ? 1 : 1300, ini = performance.now();
@@ -365,7 +366,7 @@ function giro() { if (girando && tPlano === 0 && !arr) { rot[0] += .12; dibujar(
 
 /* ---------- capas y tarjeta ---------- */
 function pintarCapas() {
-  $("capas").innerHTML = Object.entries(CAPAS).map(([k, c]) => `<button class="capa" type="button" data-c="${k}" aria-pressed="${k === capa}"><span aria-hidden="true">${c.ico}</span>${c.nombre}${c.pronto ? " <small>próximamente</small>" : ""}</button>`).join("");
+  $("capas").innerHTML = Object.entries(CAPAS).map(([k, c]) => `<button class="capa" type="button" data-c="${k}" aria-pressed="${k === capa}">${c.nombre}${c.pronto ? " <small>próximamente</small>" : ""}</button>`).join("");
   const C = CAPAS[capa], R = REAL[capa], N = NORMA[capa];
   $("leyT").textContent = R ? `${C.titulo} · cambio por década, ${R.doc.inicio.slice(0, 4)}–2025` : C.titulo + " · patrón ilustrativo";
   $("leyL").textContent = R ? `${C.L} (−${N.tope}${N.rel ? " %" : " " + R.doc.unidad})` : C.L; $("leyR").textContent = R ? `${C.R} (+${N.tope}${N.rel ? " %" : " " + R.doc.unidad})` : C.R;
@@ -373,7 +374,9 @@ function pintarCapas() {
   $("aviso").innerHTML = reales.length ? `<b>Datos reales de la NASA</b> en ${reales.join(", ")} (2000–2025, celdas de 2°). ${CAPAS.verdor.nombre} sigue siendo ilustrativo.` : $("aviso").innerHTML;
   $("barra").style.background = `linear-gradient(90deg,${C.pal.join(",")})`; $("capaTag").textContent = C.nombre;
 }
-$("capas").addEventListener("click", async e => { const b = e.target.closest(".capa"); if (!b) return; capa = b.dataset.c; await cargarCapa(capa); pintarCapas(); dibujar(); mostrarTarjeta(); });
+async function cambiarCapa(id) { if (!CAPAS[id]) return false; capa = id; pintarCapas(); await cargarCapa(id); pintarCapas(); dibujar(); mostrarTarjeta();
+  dispatchEvent(new CustomEvent("terra:capa", { detail: { capa: id, ilustrativo: !REAL[id] } })); return true; }
+$("capas").addEventListener("click", e => { const b = e.target.closest(".capa"); if (b) cambiarCapa(b.dataset.c); });
 const FMT = { temp: { variable: "Temperatura del aire", f: 1, u: "°", dec: 1, calor: true, sube: "Más calor que antes", baja: "Más fresco que antes" },
   lluvia: { variable: "Lluvia del año", f: 365.25, u: "mm", dec: 0, sube: "Llueve más que antes", baja: "Llueve menos que antes" },
   suelo: { variable: "Agua en el suelo", f: 100, u: "%", dec: 1, sube: "El suelo tiene más agua", baja: "El suelo se está secando" } };
@@ -426,17 +429,49 @@ function narrar() {
   if (L && L.series[capa]) burbuja("det", `Fuimos a <b>${esc(L.nombre)}</b>. La tarjeta muestra la ${C.titulo.toLowerCase()} con datos reales de la NASA. Prueba otra capa arriba del mapa.`);
   else burbuja("det", `Elegiste ${L ? esc(L.nombre) : "este lugar"}. En la versión final calcularé aquí la tendencia de ${C.titulo.toLowerCase()} y te diré si el cambio es seguro.`);
 }
-$("ask").addEventListener("submit", e => { e.preventDefault(); const q = $("q").value.trim(); if (!q) return; $("q").value = "";
-  burbuja("yo", esc(q)); burbuja("det", "En la versión final, el Detective (con IA) responderá aquí, explicará el patrón del mapa y moverá el globo al lugar del que hablas."); });
+$("ask").addEventListener("submit", e => { e.preventDefault(); if (window.Detective) return; const q = $("q").value.trim(); if (!q) return; $("q").value = "";
+  burbuja("yo", esc(q)); burbuja("det", "El Detective no está disponible en este momento. Toca un lugar del mapa para ver su tarjeta."); });
 
-burbuja("det", "Hola. El planeta está pintado según cuánto cambia la variable elegida: <b>rojo sube, azul baja</b> (en lluvia y suelo, café = más seco). Toca cualquier lugar para investigarlo.");
 colores(); pintarCapas(); mostrarTarjeta();
 (async () => { await Promise.all(Object.keys(NORMA).map(cargarCapa)); pintarCapas(); dibujar(); })();
 new ResizeObserver(tamanio).observe(cv);
 matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => { colores(); dibujar(); });
 new MutationObserver(() => { colores(); dibujar(); }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 requestAnimationFrame(giro);
+
+/* ---------- window.Terra: funciones del mapa para el Detective (docs/CONTRATO_DATOS.md §4) ---------- */
+const UNIDAD_MUESTRA = { mor_temp: "°C", mor_lluvia: "mm/mes", mor_suelo: "m³/m³", sahel_suelo: "m³/m³", nmx_suelo: "m³/m³", sahel_lluvia: "mm/día" };
+const redondo = (x, d = 4) => (x == null || !isFinite(x)) ? null : +x.toPrecision(d);
+function celdaDe(lon, lat, c = capa) {
+  const R = REAL[c]; if (!R) return null; const g = R.doc.rejilla;
+  return { i: Math.floor((lat - g.lat0) / g.res), j: Math.floor((lon - g.lon0) / g.res) };
+}
+window.Terra = Object.freeze({
+  capas: () => Object.entries(CAPAS).map(([id, c]) => ({ id, titulo: c.titulo, unidad: REAL[id] ? REAL[id].doc.unidad : null, ilustrativo: !REAL[id] })),
+  elegirCapa: id => cambiarCapa(String(id)),
+  async irA(lon, lat) {
+    lon = +lon; lat = +lat; if (!isFinite(lon) || !isFinite(lat)) throw new Error("coordenadas inválidas");
+    girando = false; elegir(lon, lat, cercano(lon, lat), true);
+    await new Promise(r => setTimeout(r, reduce ? 30 : 1350));
+    return { lon: seleccion.lon, lat: seleccion.lat, celda: celdaDe(seleccion.lon, seleccion.lat) };
+  },
+  async resumen(lon, lat, c = capa) {
+    let serie = null, unidad = null, fuente = null;
+    const s = await serieCelda(c, +lon, +lat);
+    if (s && s.v) { serie = s; unidad = REAL[c].doc.unidad; fuente = REAL[c].doc.fuente; }
+    else { const k = cercano(+lon, +lat), id = k && LUGARES[k].series[c];
+      if (!id) return null;
+      serie = { v: POR_ID[id].v, inicio: POR_ID[id].inicio }; unidad = UNIDAD_MUESTRA[id] || null; fuente = POR_ID[id].fuente; }
+    const r = Stats.analizar(serie.v, serie.inicio), v = Stats.veredicto(r);
+    const a = r.anual.filter(x => x.completo), A = a.slice(0, 10), B = a.slice(-10);
+    return { antes: redondo(prom(A)), hoy: redondo(prom(B)), unidad, pendiente_decada: redondo(r.porDecada, 3),
+      ic95: r.icDecada.map(x => redondo(x, 3)), p: redondo(v.p, 2), veredicto: v.clave,
+      caras: Math.max(0, Math.floor(-Math.log2(Math.max(v.p, 1e-300)))), periodo: [A[0].y, B.at(-1).y], fuente, ilustrativo: false };
+  },
+  volverAlGlobo: () => { if (!$("volver").hidden) $("volver").click(); },
+});
 </script>
+<script src="src/detective.js"></script>
 
 </body>
 </html>
