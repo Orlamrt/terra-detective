@@ -23,6 +23,14 @@ jobs:
           mkdir -p _site
           cp -r web/. _site/
           mkdir -p _site/data && cp -r data/capas data/series data/muestras _site/data/
+      - name: Poner versión a scripts y estilos (el navegador baja los nuevos tras cada publicación)
+        run: |
+          V="${GITHUB_SHA::7}"
+          for f in _site/index.html _site/demo/tarjeta.html; do
+            sed -i -E 's#((src|href)="(\.\./)?src/[^"?]+\.(js|css))"#\1?v='"$V"'"#g' "$f"
+            n=$(grep -c "?v=$V" "$f"); echo "$f: $n enlaces con versión $V"
+            [ "$n" -gt 0 ] || { echo "no se encontró ningún script para versionar en $f"; exit 1; }
+          done
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
