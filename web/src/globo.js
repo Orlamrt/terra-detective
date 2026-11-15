@@ -368,11 +368,15 @@
     seleccion = { lon, lat, bbox: d && d.bbox, datos: d }; pedir(true);
     mostrarTarjeta();
     const { resumen, ...rest } = d || {};
-    emitir("terra:lugar", { ...rest, resumen: resumen ? sinAnalisis(resumen) : null });
+    emitir("terra:lugar", { ...rest, resumen: publico(resumen) });
     await vuelo;
     return d;
   }
   const sinAnalisis = r => { const { analisis, ...x } = r; return x; };
+  // Hacia afuera (Detective, eventos) van cifras redondeadas: 4 significativas; pendiente e IC con 3; p con 2.
+  const redondo = (x, d = 4) => (x == null || !isFinite(x)) ? null : +x.toPrecision(d);
+  const publico = r => r && { ...sinAnalisis(r), antes: redondo(r.antes), hoy: redondo(r.hoy), pendiente_decada: redondo(r.pendiente_decada, 3),
+    ic95: r.ic95.map(x => redondo(x, 3)), p: redondo(r.p, 2) };
 
   function volverAlGlobo() {
     if (tPlano === 0 && !seleccion) return;
@@ -433,7 +437,7 @@
   /* ---------- capas: botones, leyenda y aviso ---------- */
   function pintarCapas() {
     const C = CAPAS[capa], E = C.estilo, m = C.meta;
-    $("capas").innerHTML = ORDEN.map(id => { const X = CAPAS[id]; return `<button class="capa" type="button" data-c="${esc(id)}" aria-pressed="${id === capa}"><span aria-hidden="true">${X.estilo.ico}</span>${esc(X.estilo.nombre)}${X.meta.ilustrativo ? " <small>ilustrativo</small>" : ""}</button>`; }).join("");
+    $("capas").innerHTML = ORDEN.map(id => { const X = CAPAS[id]; return `<button class="capa" type="button" data-c="${esc(id)}" aria-pressed="${id === capa}">${esc(X.estilo.nombre)}${X.meta.ilustrativo ? " <small>ilustrativo</small>" : ""}</button>`; }).join("");
     $("leyT").textContent = (m.titulo || E.nombre) + (m.respaldo ? " · patrón ilustrativo" : "");
     const M = mostrar(m.unidad), u = M.u ? ` ${M.u}` : "", lim = C.lim * M.f;
     $("leyL").textContent = m.respaldo ? E.L : `${E.L} (−${fmt(lim, sig2(lim))}${u} por década)`;
@@ -468,7 +472,7 @@
     elegirCapa: id => elegirCapa(id),
     capaActual: () => capa,
     async irA(lon, lat) { await preparado; girando = false; const d = await elegir(+lon, +lat); return { lon: +lon, lat: +lat, celda: d ? d.celda : null }; },
-    async resumen(lon, lat, id = capa) { await preparado; const d = await datosDe(+lon, +lat, id); return d && d.resumen ? sinAnalisis(d.resumen) : null; },
+    async resumen(lon, lat, id = capa) { await preparado; const d = await datosDe(+lon, +lat, id); return d && d.resumen ? publico(d.resumen) : null; },
     async serie(lon, lat, id = capa) { await preparado; const d = await datosDe(+lon, +lat, id); return d && d.serie ? { valores: d.serie, inicio: d.inicio, unidad: d.unidad } : null; },
     volverAlGlobo,
     rendimiento: () => ({ ms: +ultimoMs.toFixed(2), paso: pasoMov }),
