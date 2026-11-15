@@ -20,8 +20,10 @@ test('pregunta objetivo elige suelo, mueve el mapa y consulta el contrato', asyn
   const terra = mapa();
   const respuesta = await Detective.investigar('¿Se está secando el norte de México?', { terra });
   assert.deepEqual(terra.llamadas, [['capa', 'suelo'], ['ir', -108, 28.5], ['resumen', -108, 28.5, 'suelo']]);
-  assert.match(respuesta, /disminuye/);
-  assert.match(respuesta, /-0.04 m³\/m³/);
+  assert.match(respuesta, /el suelo se está secando/);
+  assert.match(respuesta, /30\.0 % de agua en el suelo/);
+  assert.match(respuesta, /10\.0 puntos menos/);
+  assert.match(respuesta, /6 caras seguidas/);
 });
 test('comparación consulta ambos lugares sin presuponer tendencias opuestas', async () => {
   const terra = mapa();
@@ -49,9 +51,9 @@ test('IA selecciona evidencia y su texto libre no se usa como respuesta', async 
 });
 test('datos ilustrativos, faltantes y cambios no concluyentes son explícitos', async () => {
   const preguntar = terra => Detective.investigar(Detective.SUGERENCIAS[0], { terra });
-  assert.match(await preguntar(mapa({ ilustrativo: true })), /AVISO: datos ilustrativos/);
-  assert.match(await preguntar(mapa({ resumen: { pendiente_decada: null } })), /no hay datos suficientes/);
-  assert.match(await preguntar(mapa({ resumen: { p: 0.4 } })), /no permite afirmar/);
+  assert.match(await preguntar(mapa({ ilustrativo: true })), /estos datos son de ejemplo/);
+  assert.match(await preguntar(mapa({ resumen: { pendiente_decada: null } })), /no tengo datos suficientes/);
+  assert.match(await preguntar(mapa({ resumen: { p: 0.4 } })), /No podemos asegurar/);
 });
 test('no inventa ubicaciones ni mueve el mapa cuando no reconoce la pregunta', async () => {
   const terra = mapa();
@@ -63,4 +65,10 @@ test('reporta contrato ausente y no continúa si la capa falla', async () => {
   const terra = mapa({ activar: false });
   await assert.rejects(Detective.investigar(Detective.SUGERENCIAS[0], { terra }), /activar/);
   assert.deepEqual(terra.llamadas, [['capa', 'suelo']]);
+});
+test('responde en lenguaje sencillo: sin p-valores, m³/m³ ni notación científica', async () => {
+  const r = await Detective.investigar(Detective.SUGERENCIAS[0], { terra: mapa({ resumen: { p: 1.9e-9 } }) });
+  assert.doesNotMatch(r, /p =|m³\/m³|\de-\d|significativ|intervalo de confianza/i);
+  assert.match(r, /más de 10 caras seguidas/);
+  assert.match(r, /Ver la prueba completa/);
 });
