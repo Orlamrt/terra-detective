@@ -43,7 +43,16 @@
   const teselas = new Map();     // "capa/ti_tj" → Promise<json|null>
 
   /* ---------- carga de datos ---------- */
-  async function json(url) { const r = await fetch(url); if (!r.ok) throw new Error(r.status + " " + url); return r.json(); }
+  async function json(url, intentos = 4) {
+    for (let k = 1; ; k++) {
+      let r = null, err = null;
+      try { r = await fetch(url); } catch (e) { err = e; }
+      if (r && r.ok) return r.json();
+      const pasajero = !r || r.status >= 500 || r.status === 429;
+      if (!pasajero || k >= intentos) throw err || new Error(r.status + " " + url);
+      await new Promise(res => setTimeout(res, 500 * k)); // GitHub Pages a veces responde 503 justo después de publicar
+    }
+  }
   async function encontrarBase() {
     for (const b of ["data/", "../data/"]) { try { const r = await fetch(b + "muestras/series_reales.json"); if (r.ok) { BASE = b; return r.json(); } } catch (e) { /* sigue */ } }
     return [];
@@ -419,7 +428,12 @@
     if (caja) { caja.hidden = !hay; if (!hay) caja.open = false; }
     if (!hay) return;
     try { anim = Tarjeta.animacion(cont, { valores: d.serie, inicio: d.inicio }, { capa: CAPAS[d.capa].tipo, unidad: d.resumen.unidad, lugar: d.nombre, analisis: d.resumen.analisis }); }
-    catch (e) { console.warn("[Terra] no se pudo crear la animación", e); caja.hidden = true; }
+    catch (e) { console.warn("[Terra] no se pudo crear la animación", e); caja.hidden = true; return; }
+    if (caja.open) anim.reproducir(); // si ya estaba abierta al cambiar de lugar, se cuenta la nueva historia
+  }
+  function alAbrirPrueba() {
+    const caja = $("pruebaCaja"); if (!anim || !caja) return;
+    if (caja.open) anim.reproducir(); else anim.pausar();
   }
   function mostrarTarjeta() {
     const el = $("tarjeta"); if (!el) return;
@@ -481,6 +495,7 @@
   };
 
   $("volver").onclick = volverAlGlobo;
+  if ($("pruebaCaja")) $("pruebaCaja").addEventListener("toggle", alAbrirPrueba);
   document.querySelectorAll("[data-ir]").forEach(b => b.onclick = () => { const L = LUGARES[b.dataset.ir]; girando = false; elegir(L.lon, L.lat); });
 
   /* ---------- arranque ---------- */
@@ -498,5 +513,6 @@
     requestAnimationFrame(bucle);
     listo();
     emitir("terra:capa", { id: capa, titulo: CAPAS[capa].meta.titulo, unidad: CAPAS[capa].meta.unidad, ilustrativo: !!CAPAS[capa].meta.ilustrativo });
-  })().catch(e => { console.error("[Terra] no se pudo iniciar el globo", e); const t = $("tarjeta"); if (t) t.innerHTML = `<div class="vacio"><b>No se pudo cargar el mapa.</b><p>${esc(e.message)}</p></div>`; });
+  })().catch(e => { console.error("[Terra] no se pudo iniciar el globo", e); const t = $("tarjeta"); if (t) { t.innerHTML = `<div class="vacio"><b>No se pudo cargar el mapa.</b><p>Puede ser un problema pasajero de conexión (${esc(e.message)}).</p><button class="btn prim" type="button" id="reintentarMapa">Reintentar</button></div>`;
+      const b = $("reintentarMapa"); if (b) b.onclick = () => location.reload(); } });
 })();
