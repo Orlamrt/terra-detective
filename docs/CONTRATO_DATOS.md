@@ -34,6 +34,19 @@ Un archivo por variable: `temp`, `lluvia`, `suelo`, `verdor`. Lo produce la **Ta
 | `p` | El mayor de los dos p-valores (el usado para las monedas: caras = ⌊−log₂ p⌋). |
 | `ilustrativo` | `true` si son datos de prueba. La web **debe** mostrar un aviso visible cuando es `true`. |
 
+### Unidades por capa (obligatorias)
+
+El campo `unidad` de cada capa y los valores de `data/series/` vienen **siempre** en estas unidades. La conversión a lo que ve la persona (mm al año, %, etc.) la hace la web.
+
+| Capa | Producto NASA | `unidad` | Rango típico | Para mostrar |
+|---|---|---|---|---|
+| `temp` | MERRA-2 T2M | `°C` | −50 a 35 | tal cual |
+| `lluvia` | GPM IMERG mensual v07 | `mm/día` | 0 a 20 | × 365.25 → mm al año |
+| `suelo` | GLDAS-2.1 Noah, 0–10 cm | `m³/m³` | 0.02 a 0.5 | × 100 → % de agua en el suelo |
+| `verdor` | MODIS MOD13C2 | `NDVI` | −0.2 a 1 | tal cual |
+
+`pendiente_decada` está en la misma `unidad` por década. Si una capa cambia de unidad, se actualiza esta tabla en el mismo PR.
+
 ## 2. Series por celda · `data/series/<capa>/<ti>_<tj>.json`
 
 Teselas de 10°×10° para que la web descargue solo lo que necesita al hacer clic.
