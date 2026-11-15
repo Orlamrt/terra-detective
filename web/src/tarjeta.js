@@ -7,10 +7,11 @@
  *
  * Agrega a `Tarjeta`:
  *   - Tarjeta.html(resumen, opciones)   → texto HTML de una tarjeta
+ *   - Tarjeta.htmlComparacion(resumenes, opciones) → tarjetas lado a lado con una frase que las compara
  *   - Tarjeta.escapar(texto)            → escapa & < > " '
  *   - Tarjeta.anioGuardado([almacen])   → año de nacimiento guardado, o null
  *   - Tarjeta.guardarAnio(anio, [almacen]) → guarda el año; true si se pudo
- *   - Tarjeta.interno                   → piezas internas que reutiliza htmlComparacion (no es API pública)
+ *   - Tarjeta.interno                   → piezas internas para animacion.js y las pruebas (no es API pública)
  *
  * Depende de: tarjeta_capas.js (Tarjeta.capa, Tarjeta.formato). No toca el DOM.
  */
@@ -230,6 +231,67 @@
       + desdeHTML(P, opciones, textos) + avisoHTML(r, textos) + `</div></article>`;
   }
 
+  /* ---------- comparación de lugares ---------- */
+
+  /**
+   * Frase que resume la comparación. Los lugares sin datos cuentan como "sin cambio seguro".
+   * @param {Array<{seguro:boolean, dir:string|null}>} preparados
+   * @returns {string}
+   */
+  function fraseComparacion(preparados) {
+    const n = preparados.length;
+    const seguros = preparados.filter((P) => P.seguro);
+    const dos = n === 2;
+    if (seguros.length === 0) return dos ? "En ninguno de los dos lugares hay un cambio claro." : "En ninguno de los lugares hay un cambio claro.";
+    if (seguros.length < n) {
+      if (seguros.length === 1) return dos ? "Solo en uno de los dos lugares el cambio es seguro." : `Solo en uno de los ${n} lugares el cambio es seguro.`;
+      return `Solo en ${seguros.length} de los ${n} lugares el cambio es seguro.`;
+    }
+    const dirs = new Set(seguros.map((P) => P.dir));
+    if (dirs.size > 1) return dos ? "Depende del lugar: en uno sube y en otro baja." : "Depende del lugar: en unos sube y en otros baja.";
+    const dir = seguros[0].dir;
+    return dos ? `En los dos lugares ${dir}.` : `En todos los lugares ${dir}.`;
+  }
+
+  /**
+   * Varias tarjetas lado a lado con una frase arriba que las compara
+   * ("Depende del lugar: en uno sube y en otro baja", "En los dos lugares sube"…).
+   * Recibe un arreglo de cualquier largo; hoy se usa con 2.
+   *
+   * @param {object[]} resumenes un resumen por lugar (mismo formato que Tarjeta.html)
+   * @param {object} [opciones] las mismas de Tarjeta.html, compartidas por todas las tarjetas, más:
+   * @param {object[]} [opciones.porTarjeta] opciones de cada tarjeta (se mezclan encima de las compartidas),
+   *   por ejemplo para usar otra capa o textos distintos en un lugar
+   * @param {string} [opciones.textos.comparacion] reemplaza la frase de arriba (se escapa)
+   * @returns {string} HTML
+   * @example
+   * contenedor.innerHTML = Tarjeta.htmlComparacion([resumenSahel, resumenNorte], { capa: "suelo" });
+   */
+  function htmlComparacion(resumenes, opciones = {}) {
+    const op = opciones || {};
+    const lista = Array.isArray(resumenes) ? resumenes : [];
+    if (lista.length === 0) return `<div class="tj-comparacion"><p class="tj-resumen">No hay lugares para comparar.</p></div>`;
+    const porTarjeta = Array.isArray(op.porTarjeta) ? op.porTarjeta : [];
+    const compartidas = { ...op };
+    delete compartidas.porTarjeta;
+    const ops = lista.map((_, i) => {
+      const propias = porTarjeta[i] || {};
+      return { ...compartidas, ...propias, textos: { ...(compartidas.textos || {}), ...(propias.textos || {}) } };
+    });
+    const tarjetas = lista.map((r, i) => {
+      const o = ops[i];
+      delete o.textos.comparacion; // la frase de arriba no es un texto de la tarjeta
+      return Tarjeta.html(r, o);
+    });
+    let frase = "";
+    if (lista.length > 1) {
+      const t = op.textos && op.textos.comparacion;
+      frase = t != null ? escapar(t) : fraseComparacion(lista.map((r, i) => preparar(r, ops[i])));
+    }
+    return `<div class="tj-comparacion">${frase ? `<p class="tj-resumen">${frase}</p>` : ""}`
+      + `<div class="tj-grid">${tarjetas.join("")}</div></div>`;
+  }
+
   /* ---------- año de nacimiento (localStorage) ---------- */
 
   const CLAVE_ANIO = "terraAnio";
@@ -260,6 +322,7 @@
   }
 
   Tarjeta.html = html;
+  Tarjeta.htmlComparacion = htmlComparacion;
   Tarjeta.escapar = escapar;
   Tarjeta.anioGuardado = anioGuardado;
   Tarjeta.guardarAnio = guardarAnio;
