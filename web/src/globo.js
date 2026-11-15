@@ -446,9 +446,11 @@
     if ($("capaTag")) $("capaTag").textContent = E.nombre;
     const aviso = $("aviso");
     if (aviso) {
-      aviso.hidden = !m.ilustrativo;
+      aviso.hidden = false;
+      aviso.classList.toggle("real", !m.ilustrativo);
       aviso.innerHTML = m.respaldo ? "<b>Datos ilustrativos.</b> Aún no hay capas de la NASA en este sitio: los colores del mapa son un patrón de ejemplo, no mediciones. Morelos, Sahel y norte de México sí usan series reales."
-        : `<b>Datos ilustrativos.</b> La capa «${esc(m.titulo || capa)}» es de prueba (${esc(m.fuente || "sin fuente")}); no representa mediciones reales.`;
+        : m.ilustrativo ? `<b>Datos ilustrativos.</b> La capa «${esc(m.titulo || capa)}» es de prueba (${esc(m.fuente || "sin fuente")}); no representa mediciones reales.`
+        : `<b>Datos reales de la NASA.</b> ${esc(m.titulo || capa)}: ${esc(m.fuente || "")}, ${esc((m.inicio || "").slice(0, 4))}–2025, celdas de ${esc(String(m.rejilla && m.rejilla.res || 2))}°.`;
     }
   }
   $("capas").addEventListener("click", e => { const b = e.target.closest(".capa"); if (b) elegirCapa(b.dataset.c); });

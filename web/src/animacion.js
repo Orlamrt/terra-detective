@@ -322,7 +322,7 @@
       return [
         `Estos son ${r1.n} meses de ${variable}${l1 ? ` en ${l1}` : ""}${periodo(r1)}. La línea sube y baja cada año: eso son las estaciones, no la tendencia.`,
         "Quitamos las estaciones: cada punto es el promedio de un año. Así comparamos años completos y vemos si los recientes son distintos a los primeros.",
-        `La línea de tendencia resume todos los puntos: empieza en ${F.numero(v.nivel(ta), cfg.decimales)}${unidad} y termina en ${F.numero(v.nivel(tb), cfg.decimales)}${unidad}. Eso es ${F.cambio(porDecada, cfg.decimales + 1)}${unidad} por década.`,
+        `La línea de tendencia resume todos los puntos: empieza en ${F.numero(v.nivel(ta), cfg.decimales)}${unidad} y termina en ${F.numero(v.nivel(tb), cfg.decimales)}${unidad}. Eso es ${cfg.cambioComo === "puntos" ? F.puntos(porDecada, cfg.decimales + 1) : F.cambio(porDecada, cfg.decimales + 1) + unidad} por década.`,
         todas ? `Cada línea gris es una tendencia posible según los datos. Todas apuntan ${r1.b > 0 ? "hacia arriba" : "hacia abajo"}: la dirección del cambio es clara.`
           : "Cada línea gris es una tendencia posible según los datos. Unas suben y otras bajan: con estos años aún no podemos asegurar hacia dónde va.",
         fraseVeredicto(l1, variable, r1, veredictos[0] || { clave: "no" }),

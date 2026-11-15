@@ -40,7 +40,7 @@ python -m pytest tests/      # requiere Node.js
 docs/        CONTRATO_DATOS.md (formato que une todo) · TAREAS.md (reparto en 5)
 pipeline/    descarga NASA, tendencias, exportación
 data/        muestras/ (series reales) · capas/ y series/ (salida del pipeline)
-web/         index.html (globo) · src/ (stats.js, mapa base) · prototipos/ · plantillas/
+web/         index.html + src/globo.js (globo, Tarea 2) · src/tarjeta*.js, animacion.js (Tarea 3) · src/detective.js (Tarea 4) · prototipos/
 notebooks/   Colab: análisis de Morelos y Detective de tendencias
 tests/       paridad estadística JS ↔ Python
 ```
