@@ -1,5 +1,6 @@
-"""Arma web/index.html (globo) desde la plantilla y asegura que todas las páginas de web/
-tengan documento HTML completo con codificación UTF-8 (necesario fuera de claude.ai, p. ej. GitHub Pages).
+"""Asegura que las páginas de web/prototipos/ tengan documento HTML completo con UTF-8
+(necesario fuera de claude.ai, p. ej. GitHub Pages). El globo (web/index.html + web/src/globo.js)
+se edita directamente: ya no se genera desde una plantilla.
 
 Uso: python web/construir.py
 """
@@ -18,20 +19,7 @@ def documento(cuerpo: str) -> str:
     return cuerpo if cuerpo.lstrip().lower().startswith("<!doctype") else CABECERA + cuerpo + PIE
 
 
-def construir_globo():
-    t = (W / "plantillas" / "mundo_plantilla.html").read_text(encoding="utf-8")
-    t = t.replace("/*STATS*/", (W / "src" / "stats.js").read_text(encoding="utf-8").replace("if (typeof module", "if (false && typeof module"))
-    t = t.replace("/*LAND*/", (W / "src" / "land-110m.json").read_text(encoding="utf-8"))
-    t = t.replace("/*DATOS*/", (RAIZ / "data" / "muestras" / "series_reales.json").read_text(encoding="utf-8"))
-    (W / "index.html").write_text(documento(t), encoding="utf-8")
-
-
 if __name__ == "__main__":
-    # El globo ya no se arma desde la plantilla: web/index.html carga src/globo.js, src/stats.js y src/land-110m.json.
-    # Usa `python web/construir.py --plantilla` solo si quieres regenerar la versión antigua de un solo archivo.
-    import sys
-    if "--plantilla" in sys.argv:
-        construir_globo()
     for p in (W / "prototipos").glob("*.html"):
-        p.write_text(documento(p.read_text(encoding="utf-8")), encoding="utf-8")
+        p.write_text(documento(p.read_text(encoding="utf-8")), encoding="utf-8", newline="\n")
     print("listo:", ", ".join(str(p.relative_to(W)) for p in sorted((W / "prototipos").glob("*.html"))))
